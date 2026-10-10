@@ -1,0 +1,10 @@
+# Netlify build config for the Telegram Mini App.
+# The git repo root is this folder ("New folder (4)"); the deployable Mini App
+# lives under shopbot/webapp (self-contained shop.html with the catalog baked
+# in). This root-level file tells Netlify to build from shopbot/ and publish
+# shopbot/webapp, so it works even when the dashboard Base directory is left
+# at the repository root.
+[build]
+  base = "shopbot"
+  publish = "webapp"
+  command = ""
