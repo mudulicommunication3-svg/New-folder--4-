@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MUNNA MOBILE &amp; Grocery - Mini Shop</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: sans-serif; margin: 0; background: #fff; color: #111; }
+  header { position: sticky; top: 0; padding: 12px 16px; font-weight: 700;
+           font-size: 17px; background: #f2f2f7; z-index: 5; }
+  #search { width: 100%; padding: 10px 12px; margin: 8px 0 0; font-size: 15px;
+            border: 1px solid #ccc; border-radius: 10px; }
+  #cats { display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px; }
+  #cats button { flex: 0 0 auto; padding: 8px 14px; border-radius: 999px;
+                 border: 1px solid #ccc; background: #fff; font-size: 14px; }
+  #cats button.active { background: #2aabee; color: #fff; border-color: #2aabee; }
+  #grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+          padding: 4px 12px 90px; }
+  .card { border: 1px solid #e3e3e3; border-radius: 12px; overflow: hidden;
+          background: #fff; display: flex; flex-direction: column; }
+  .card img { width: 100%; height: 120px; object-fit: cover; background: #f4f4f4; }
+  .card .body { padding: 8px; display: flex; flex-direction: column;
+                gap: 4px; flex: 1; }
+  .card .name { font-size: 13px; font-weight: 600; min-height: 32px; }
+  .card .price { font-size: 14px; font-weight: 700; }
+  .card .mrp { font-size: 11px; color: #888; text-decoration: line-through; }
+  .stepper { display: flex; align-items: center; justify-content: space-between;
+             margin-top: auto; }
+  .stepper button { width: 32px; height: 32px; font-size: 18px; border-radius: 8px;
+                    border: 1px solid #2aabee; background: #fff; color: #2aabee; }
+  .add { width: 100%; padding: 8px; border: none; border-radius: 8px; font-size: 14px;
+         font-weight: 700; background: #2aabee; color: #fff; margin-top: auto; }
+  .qty { font-weight: 700; }
+  #bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px;
+         background: #f2f2f7; display: flex;
+         justify-content: space-between; align-items: center; }
+  #bar button { padding: 12px 22px; border: none; border-radius: 10px; font-size: 16px;
+                font-weight: 700; background: #31b545; color: #fff; }
+  #empty { text-align: center; padding: 40px 20px; color: #888; grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+<header>Mini Shop</header>
+<div style="padding:0 16px"><input id="search" placeholder="Search products..."></div>
+<div id="cats"></div>
+<div id="grid"></div>
+<div id="bar"><span id="total">Cart: 0 items</span><button id="checkout">Checkout</button></div>
+<noscript><p style="padding:16px">Please enable JavaScript to shop.</p></noscript>
+<script>
+  // Catalog is embedded inline by export_catalog.py so the Mini App is fully
+  // self-contained (no dependency on an external catalog.js file deploying).
+  window.STORE_CATALOG = [{"ean": "8901234567890", "product_name": "Fortune Mustard Oil 1L", "mrp": "210", "selling_price": "170", "stock_qty": "30", "image_url": "", "category": "General"}, {"ean": "8901234567892", "product_name": "Fortune Mustard Oil 1L", "mrp": "210", "selling_price": "170", "stock_qty": "15", "image_url": "https://cdn1.jiomartjcp.com/v2/catalog-cloud/jiomar/original/images/othe/egurhk/.j/pg/00000000049000802414.jpg.3547dcb389.jpg", "category": "General"}, {"ean": "132487249", "product_name": "Aashirvaad Shudh Whole Wheat Chakki Atta 5 kg", "mrp": "278", "selling_price": "235", "stock_qty": "10", "image_url": "https://cdn1.jiomartjcp.com/v2/catalog-cloud/jiomar/original/images/othe/egurhk/.j/pg/4900000381.jpg.24dd9dd971.jpg", "category": "General"}, {"ean": "7515745", "product_name": "Good Life Chakki Atta 5 kg", "mrp": "270", "selling_price": "209", "stock_qty": "10", "image_url": "https://cdn1.jiomartjcp.com/v2/catalog-cloud/jiomar/original/images/othe/egurhk/.j/pg/0000000004913496591.jpg.05c7899a58.jpg", "category": "General"}, {"ean": "72878635", "product_name": "BDM Fresh Whole Wheat Chakki Atta 5 kg", "mrp": "250", "selling_price": "185", "stock_qty": "10", "image_url": "https://cdn1.jiomartjcp.com/v2/catalog-cloud/jiomar/original/images/othe/egurhk/.j/pg/0000000004947646391.jpg.f6abe4791c.jpg", "category": "General"}, {"ean": "7533476", "product_name": "Freedom Refined Sunflower Oil 1 L", "mrp": "230", "selling_price": "169", "stock_qty": "10", "image_url": "https://cdn1.jiomartjcp.com/v2/catalog-cloud/jiomar/original/images/othe/egurhk/.j/pg/0000000004907689361.jpg.1947779d4b.jpg", "category": "Sunflower Oil"}, {"ean": "7525234", "product_name": "Horlicks Classic Malt 1 kg", "mrp": "555", "selling_price": "390", "stock_qty": "1", "image_url": "https://cdn1.jiomartjcp.com/v2/catalog-cloud/jiomar/original/images/othe/egurhk/.j/pg/horlicks-classic-malt-1-kg-2-x-500-g-0-20211019.jpg.7b7fd4d05a.jpg", "category": "Nutritional Drinks"}, {"ean": "132487032", "product_name": "Aashirvaad Shudh Whole Wheat Chakki Atta 1 kg", "mrp": "56", "selling_price": "53", "stock_qty": "10", "image_url": "https://cdn1.jiomartjcp.com/v2/catalog-cloud/jiomar/original/images/othe/egurhk/.j/pg/4900000321.jpg.b8d354dd8d.jpg", "category": "Atta"}, {"ean": "7546505", "product_name": "Good Life Refined Sunflower Oil 820 g", "mrp": "210", "selling_price": "159", "stock_qty": "10", "image_url": "https://cdn1.jiomartjcp.com/v2/catalog-cloud/jiomar/original/images/othe/egurhk/.j/pg/0000000004945895101.jpg.57edfe6876.jpg", "category": "Sunflower Oil"}];
+</script>
+<script>
+(function () {
+  var tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+  if (tg) { tg.ready(); tg.expand(); }
+  var CATALOG = window.STORE_CATALOG || [];
+  var cart = {};
+  var activeCat = "All";
+  var query = "";
+  function money(v) { var n = parseFloat(v) || 0; return (Math.round(n * 100) / 100).toString(); }
+  function stockOf(p) { return parseInt(p.stock_qty, 10) || 0; }
+  function catOf(p) { return (((p.category || "General") + "").trim()) || "General"; }
+  function categories() {
+    var seen = {}, out = ["All"], i, c;
+    for (i = 0; i < CATALOG.length; i++) {
+      c = catOf(CATALOG[i]);
+      if (!seen[c]) { seen[c] = 1; out.push(c); }
+    }
+    return out;
+  }
+  function setQty(ean, qty) {
+    qty = Math.max(0, Math.min(99, qty | 0));
+    if (qty <= 0) delete cart[ean]; else cart[ean] = qty;
+    render();
+  }
+  function findProduct(ean) {
+    for (var i = 0; i < CATALOG.length; i++) {
+      if (String(CATALOG[i].ean) === String(ean)) return CATALOG[i];
+    }
+    return null;
+  }
+  function renderBar() {
+    var keys = Object.keys(cart), n = 0, total = 0, k, p;
+    for (k = 0; k < keys.length; k++) {
+      p = findProduct(keys[k]);
+      if (!p) continue;
+      n += cart[keys[k]];
+      total += (parseFloat(p.selling_price) || 0) * cart[keys[k]];
+    }
+    document.getElementById("total").textContent = "Cart: " + n + " items - Rs." + money(total);
+  }
+  function makeStepper(ean, qty) {
+    var st = document.createElement("div"); st.className = "stepper";
+    var dec = document.createElement("button"); dec.textContent = "-";
+    dec.onclick = (function (e, q) { return function () { setQty(e, q - 1); }; })(ean, qty);
+    var qv = document.createElement("span"); qv.className = "qty"; qv.textContent = qty;
+    var inc = document.createElement("button"); inc.textContent = "+";
+    inc.onclick = (function (e, q) { return function () { setQty(e, q + 1); }; })(ean, qty);
+    st.appendChild(dec); st.appendChild(qv); st.appendChild(inc);
+    return st;
+  }
+  function makeAdd(ean) {
+    var add = document.createElement("button");
+    add.className = "add"; add.textContent = "Add to Cart";
+    add.onclick = (function (e) { return function () { setQty(e, 1); }; })(ean);
+    return add;
+  }
+  function makeCard(p) {
+    var card = document.createElement("div");
+    card.className = "card";
+    var img = document.createElement("img");
+    img.src = p.image_url || ""; img.alt = p.product_name || ""; img.loading = "lazy";
+    card.appendChild(img);
+    var body = document.createElement("div");
+    body.className = "body";
+    var nm = document.createElement("div");
+    nm.className = "name"; nm.textContent = p.product_name || "Product";
+    body.appendChild(nm);
+    var pr = document.createElement("div");
+    pr.className = "price"; pr.textContent = "Rs." + money(p.selling_price) + " ";
+    var mrp = document.createElement("span");
+    mrp.className = "mrp"; mrp.textContent = "Rs." + money(p.mrp);
+    pr.appendChild(mrp);
+    body.appendChild(pr);
+    var qty = cart[p.ean] || 0;
+    body.appendChild(qty > 0 ? makeStepper(p.ean, qty) : makeAdd(p.ean));
+    card.appendChild(body);
+    return card;
+  }
+  function render() {
+    var box = document.getElementById("cats");
+    box.innerHTML = "";
+    categories().forEach(function (c) {
+      var b = document.createElement("button");
+      b.textContent = c;
+      if (c === activeCat) b.className = "active";
+      b.onclick = (function (cat) { return function () { activeCat = cat; render(); }; })(c);
+      box.appendChild(b);
+    });
+    var grid = document.getElementById("grid");
+    grid.innerHTML = "";
+    var q = query.trim().toLowerCase(), shown = 0, i, p;
+    for (i = 0; i < CATALOG.length && shown < 200; i++) {
+      p = CATALOG[i];
+      if (stockOf(p) <= 0) continue;
+      if (activeCat !== "All" && catOf(p) !== activeCat) continue;
+      if (q && (p.product_name || "").toLowerCase().indexOf(q) < 0) continue;
+      grid.appendChild(makeCard(p));
+      shown++;
+    }
+    if (!shown) grid.innerHTML = '<div id="empty">No products found.</div>';
+    renderBar();
+  }
+  document.getElementById("search").addEventListener("input", function (e) {
+    query = e.target.value || "";
+    render();
+  });
+  document.getElementById("checkout").addEventListener("click", function () {
+    var items = Object.keys(cart).map(function (ean) { return { ean: ean, qty: cart[ean] }; });
+    if (!items.length) { alert("Your cart is empty!"); return; }
+    if (tg && tg.sendData) tg.sendData(JSON.stringify({ items: items }));
+    else alert("Open this shop from Telegram to check out.");
+  });
+  render();
+})();
+</script>
+</body>
+</html>
