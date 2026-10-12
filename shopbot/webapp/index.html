@@ -729,6 +729,34 @@
       document.getElementById('summaryTotal').innerText = "Rs." + money(total);
     }
 
+    // --- Per-user checkout profile -----------------------------------------
+    // The customer's name/phone/address is remembered per Telegram user so the
+    // form is prefilled next time - no retyping the address on every order.
+    // Priority: ?addr/?phone/?name (bot's saved address) > localStorage > Telegram profile.
+    function getTgUser() {
+      try { return (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null; } catch (e) { return null; }
+    }
+    function userProfileKey() {
+      var u = getTgUser();
+      return 'munna_profile_' + (u && u.id ? u.id : 'anon');
+    }
+    function prefillOrderForm() {
+      var sp = null;
+      try { sp = new URLSearchParams(window.location.search); } catch (e) {}
+      var saved = null;
+      try { saved = JSON.parse(localStorage.getItem(userProfileKey()) || 'null'); } catch (e) {}
+      var u = getTgUser();
+      var name = (sp && sp.get('name')) || (saved && saved.name) || (u && u.first_name) || '';
+      var phone = (sp && sp.get('phone')) || (saved && saved.phone) || (u && u.phone_number) || '';
+      var addr = (sp && sp.get('addr')) || (saved && saved.address) || '';
+      if (name) document.getElementById('orderCustName').value = name;
+      if (phone) document.getElementById('orderCustPhone').value = phone;
+      if (addr) document.getElementById('orderCustAddress').value = addr;
+    }
+    function saveOrderProfile(name, phone, address) {
+      try { localStorage.setItem(userProfileKey(), JSON.stringify({ name: name, phone: phone, address: address })); } catch (e) {}
+    }
+
     function submitOrder() {
       var items = Object.keys(cart).map(ean => ({ ean: ean, qty: cart[ean] }));
       if (!items.length) { alert("Your cart is empty!"); return; }
@@ -741,6 +769,7 @@
         alert("ଦୟାକରି ଫୋନ୍ ନମ୍ବର ଏବଂ ଠିକଣା ପ୍ରବେଶ କରନ୍ତୁ!");
         return;
       }
+      saveOrderProfile(name, phone, address);
 
       var total = 0;
       var text = `🛍️ *ନୂଆ ଅର୍ଡର - MUNNA STORE*\n👤 ଗ୍ରାହକ: ${name}\n📞 ଫୋନ୍: ${phone}\n📍 ଠିକଣା: ${address}\n\n*ସାମଗ୍ରୀ:*`;
@@ -1034,6 +1063,7 @@
           localStorage.setItem('munna_sheet_webhook', sheetParam);
         }
       } catch (e) {}
+      prefillOrderForm();
       render();
       syncFromGoogleSheet();
     });

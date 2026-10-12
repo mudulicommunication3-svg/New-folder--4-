@@ -331,6 +331,79 @@ finally:
     storefront.handle_checkout_text = orig_hct
     ai_agent.answer = orig_answer
 
+
+# --- Open Shop URL validation ---------------------------------------------
+# A hostname label may NOT start or end with '-' (RFC 1123). Telegram enforces
+# this too and raises Button_url_invalid, so the guard must reject a trailing
+# '-' so /start never sends a broken button. The bot must also stay alive even
+# if a bad URL slips through (cmd_start falls back to a button-less menu).
+url_cases = [
+    ("https://new-folder--4.netlify.app", True),
+    ("https://new-folder--4-.netlify.app", False),  # trailing '-' -> Telegram rejects
+    ("https://example.com/shop", True),
+    ("https://shop.domain.co.in/", True),
+    ("http://example.com", False),
+    ("https://-bad.com", False),
+    ("not a url", False),
+    ("", False),
+]
+for _u, _exp in url_cases:
+    check(
+        f"webapp URL {(_u or '(empty)')!r} -> {_exp}",
+        storefront._is_valid_webapp_url(_u) is _exp,
+    )
+
+check(
+    "chat-mode button exists in router pattern",
+    bool(_re.match(storefront.CALLBACK_PATTERN, storefront.CB_CHATMODE)),
+)
+
+# --- Per-user Open Shop URL (address prefill) ------------------------------
+import urllib.parse as _urlparse
+
+_orig_web_app_url = storefront.web_app_url
+_orig_get_addr = storefront.db.get_address
+try:
+    storefront.web_app_url = lambda: "https://munagrocery.netlify.app"
+
+    storefront.db.get_address = lambda uid: {
+        "name": "Ramesh",
+        "phone": "9876543210",
+        "address": "At/Post Rampur, Cuttack 754001",
+    }
+    _u_saved = storefront.web_app_shop_url_for_user(111)
+    _q = _urlparse.parse_qs(_urlparse.urlsplit(_u_saved).query)
+    check(
+        "per-user URL embeds saved name/phone/address",
+        _q.get("addr") == ["At/Post Rampur, Cuttack 754001"]
+        and _q.get("phone") == ["9876543210"]
+        and _q.get("name") == ["Ramesh"],
+    )
+    check(
+        "per-user URL is still a valid button URL",
+        storefront._is_valid_webapp_url(_u_saved) is True,
+    )
+
+    storefront.db.get_address = lambda uid: None
+    check(
+        "per-user URL falls back to base when nothing saved",
+        storefront.web_app_shop_url_for_user(111)
+        == "https://munagrocery.netlify.app",
+    )
+
+    def _boom(uid):
+        raise RuntimeError("sheet down")
+
+    storefront.db.get_address = _boom
+    check(
+        "per-user URL never raises when address book fails",
+        storefront.web_app_shop_url_for_user(111)
+        == "https://munagrocery.netlify.app",
+    )
+finally:
+    storefront.web_app_url = _orig_web_app_url
+    storefront.db.get_address = _orig_get_addr
+
 print()
 print(f"{total - failures}/{total} checks passed")
 sys.exit(1 if failures else 0)

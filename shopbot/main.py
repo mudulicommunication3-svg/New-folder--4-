@@ -76,12 +76,38 @@ async def cmd_start(update, context) -> None:
         is_admin=is_admin,
         admin_panel_markup=admin_handler.panel_keyboard() if is_admin else None,
         chat_mode=storefront.get_chat_mode(context),
+        user_id=user.id if user else None,
     )
-    await update.effective_message.reply_text(
-        WELCOME,
-        parse_mode="Markdown",
-        reply_markup=keyboard,
-    )
+    try:
+        await update.effective_message.reply_text(
+            WELCOME,
+            parse_mode="Markdown",
+            reply_markup=keyboard,
+        )
+        return
+    except Exception as exc:  # noqa: BLE001 - e.g. Button_url_invalid (bad WEB_APP_URL)
+        logger.warning(
+            "/start with full menu failed (%s); retrying without Open Shop", exc
+        )
+    # A bad Mini App URL must never silence /start - drop the Open Shop button.
+    try:
+        fallback = storefront.start_keyboard(
+            is_admin=is_admin,
+            admin_panel_markup=admin_handler.panel_keyboard() if is_admin else None,
+            chat_mode=storefront.get_chat_mode(context),
+            include_webapp=False,
+        )
+        await update.effective_message.reply_text(
+            WELCOME,
+            parse_mode="Markdown",
+            reply_markup=fallback,
+        )
+    except Exception as exc:  # noqa: BLE001 - last resort: plain text, no buttons
+        logger.error("/start fallback failed: %s", exc)
+        try:
+            await update.effective_message.reply_text(WELCOME)
+        except Exception:  # noqa: BLE001
+            pass
 
 
 async def cmd_help(update, context) -> None:

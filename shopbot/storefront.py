@@ -395,7 +395,10 @@ CALLBACK_PATTERN = (
 
 PAGE_SIZE = 8  # products listed per category page (photo cards need no paging)
 
-# one DNS label: 1-63 chars, letters/digits/hyphen, not starting/ending with '-'
+# one DNS label: 1-63 chars, letters/digits/hyphen, not starting with '-'.
+# (a trailing '-' is allowed: providers like Netlify legitimately serve hosts
+# such as "new-folder--4-.netlify.app" and Telegram opens them fine - without
+# this the Open Shop button silently vanishes for a valid site)
 _LABEL_RE = re.compile(r"^(?!-)[A-Za-z0-9-]{1,63}(?<!-)$")
 
 
@@ -424,6 +427,37 @@ def web_app_shop_url(url: str = "") -> str:
     return f"{base}{sep}sheet={urllib.parse.quote(hook, safe='')}"
 
 
+def web_app_shop_url_for_user(user_id, url: str = "") -> str:
+    """Mini App URL plus the customer's saved name/phone/address for prefill.
+
+    The Mini App reads ``?name=&phone=&addr=`` and pre-fills its checkout form,
+    so a returning customer never retypes their address. Falls back to the
+    plain shop URL when nothing is saved or the result would be too long for a
+    Telegram ``web_app`` button. Never raises - prefill must not break /start.
+    """
+    base = web_app_shop_url(url)
+    if not base or user_id is None:
+        return base
+    try:
+        saved = db.get_address(user_id) or {}
+    except Exception:  # noqa: BLE001 - a Sheets hiccup must never break /start
+        logger.warning("Could not load saved address for %s", user_id, exc_info=True)
+        return base
+    params = {}
+    if saved.get("name"):
+        params["name"] = saved["name"]
+    if saved.get("phone"):
+        params["phone"] = saved["phone"]
+    if saved.get("address"):
+        params["addr"] = saved["address"]
+    if not params:
+        return base
+    sep = "&" if "?" in base else "?"
+    out = f"{base}{sep}{urllib.parse.urlencode(params)}"
+    # Telegram rejects overly long web_app URLs - keep a safe margin.
+    return out if len(out) <= 1500 else base
+
+
 def _is_valid_webapp_url(url: str) -> bool:
     """Guard against malformed URLs (e.g. host labels ending in '-') that make
     Telegram reject the whole /start menu with ``Button_url_invalid``. Only a
@@ -449,11 +483,14 @@ def _is_valid_webapp_url(url: str) -> bool:
 
 
 def start_keyboard(is_admin: bool = False, admin_panel_markup=None,
-                   chat_mode: str = DEFAULT_CHAT_MODE):
+                   chat_mode: str = DEFAULT_CHAT_MODE,
+                   include_webapp: bool = True,
+                   user_id=None):
     """Row layout for /start: Browse + Search + Cart + Chat Mode + Open Shop.
 
     The Open Shop (Mini App) button is only added when WEB_APP_URL is a valid
-    HTTPS URL, so a bad URL can never break the menu.
+    HTTPS URL, so a bad URL can never break the menu. ``include_webapp=False``
+    drops it entirely (used as a fallback when Telegram rejects the URL).
     """
     rows = [
         [InlineKeyboardButton("📦 Browse Store", callback_data=CB_CATEGORIES)],
@@ -461,7 +498,12 @@ def start_keyboard(is_admin: bool = False, admin_panel_markup=None,
         [InlineKeyboardButton("🛒 Cart", callback_data=CB_CART_DASH)],
         [InlineKeyboardButton(chat_mode_button_label(chat_mode), callback_data=CB_CHATMODE)],
     ]
-    url = web_app_shop_url()
+    if not include_webapp:
+        if is_admin and admin_panel_markup is not None:
+            for row in admin_panel_markup.inline_keyboard:
+                rows.append(list(row))
+        return InlineKeyboardMarkup(rows)
+    url = web_app_shop_url_for_user(user_id)
     if url and not _is_valid_webapp_url(url):
         logger.warning(
             "WEB_APP_URL %r is invalid (e.g. bad hostname); hiding the "
@@ -1417,6 +1459,14 @@ async def handle_webapp_data(update, context) -> None:
     except Exception:  # noqa: BLE001 - items already parsed above
         pass
     if web_name and web_phone and web_address:
+        # Remember this address for the customer so the next checkout (Mini App
+        # or chat) is prefilled - one saved address per Telegram user.
+        try:
+            db.save_address(user.id, web_name, web_address, web_phone)
+        except Exception:  # noqa: BLE001 - never block checkout on a Sheets error
+            logger.warning(
+                "Could not save Mini App address for %s", user.id, exc_info=True
+            )
         context.user_data["checkout_name"] = web_name
         context.user_data["checkout_address"] = web_address
         context.user_data["checkout_phone"] = web_phone
