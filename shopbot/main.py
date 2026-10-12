@@ -152,12 +152,14 @@ def main() -> None:
     if not token:
         raise SystemExit("TELEGRAM_TOKEN (or BOT_TOKEN) is missing from .env")
 
-    def _post_init(a):
+    async def _post_init(a):
         # Start the periodic auto-restart countdown (5.5h by default).
+        # Must be async (PTB awaits post_init) and never raise - a broken
+        # countdown should never stop the bot from starting.
         try:
             import selfrestart
 
-            a.create_task(selfrestart.auto_restart_watcher(a))
+            asyncio.create_task(selfrestart.auto_restart_watcher(a))
         except Exception:  # noqa: BLE001 - countdown must never break startup
             logger.error("Could not start auto-restart watcher", exc_info=True)
 
