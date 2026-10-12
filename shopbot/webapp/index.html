@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="or">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>ମୁନ୍ନା ମୋବାଇଲ୍ ଆଣ୍ଡ୍ ଗ୍ରୋସରୀ - MUNNA MOBILE & GROCERY</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Oriya:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Noto Sans Oriya', 'Plus Jakarta Sans', system-ui, sans-serif; background: #f1f3f6; color: #111; touch-action: pan-y; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>
+</head>
+<body class="pb-28 antialiased">
+
+  <header class="bg-[#1864ab] text-white px-4 pt-3 pb-3 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-md mx-auto flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <div class="w-10 h-10 rounded-xl bg-[#ffd43b] text-slate-950 font-black text-2xl flex items-center justify-center shadow-xs">
+          M
+        </div>
+        <div>
+          <h1 class="font-extrabold text-sm leading-tight">ମୁନ୍ନା ମୋବାଇଲ୍ ଆଣ୍ଡ୍ ଗ୍ରୋସରୀ</h1>
+          <p class="text-[10px] text-blue-100 flex items-center gap-1 font-medium">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span>ମୋବାଇଲ୍ • ଆକ୍ସେସୋରିଜ୍ • ସଉଦା</span>
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button onclick="toggleLang()" class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-[11px] font-bold flex items-center gap-1">
+          <i class="ph-bold ph-translate"></i>
+          <span id="langBtnText">English</span>
+        </button>
+        <button onclick="toggleProfileDrawer()" id="navLoginBtn" class="px-2.5 py-1 rounded-lg bg-[#ffd43b] text-slate-950 text-xs font-black flex items-center gap-1 shadow-xs hover:bg-yellow-400">
+          <i class="ph-bold ph-user"></i>
+          <span id="navLoginText">ଲଗଇନ୍</span>
+        </button>
+        <button onclick="openAdminModal()" title="Admin Control" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white">
+          <i class="ph-bold ph-lock-key text-sm"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="max-w-md mx-auto mt-2.5">
+      <div class="relative">
+        <i class="ph-bold ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+        <input 
+          type="text" 
+          id="searchInput" 
+          placeholder="ମୋବାଇଲ୍, ଚାର୍ଜର କିମ୍ବା ଗ୍ରୋସରୀ ସନ୍ଧାନ କରନ୍ତୁ..."
+          oninput="handleSearch(this.value)"
+          class="w-full pl-9 pr-9 py-2 bg-white text-slate-800 text-xs rounded-xl shadow-xs border border-transparent focus:border-yellow-400 outline-none placeholder:text-slate-400 font-medium"
+        >
+        <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+          <i class="ph-bold ph-x-circle text-base"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <section class="max-w-md mx-auto px-3.5 mt-3">
+    <div class="bg-gradient-to-r from-[#146c43] to-[#0f5132] rounded-2xl p-4 text-white relative shadow-sm overflow-hidden">
+      <div class="flex items-center justify-between">
+        <span class="inline-flex items-center gap-1 bg-[#ffd43b] text-slate-950 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">
+          <i class="ph-bold ph-shopping-cart"></i> ମାସିକିଆ ସଉଦା ଅଫର୍
+        </span>
+        <div class="w-14 h-12 bg-white/10 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center border border-white/20">
+          <i class="ph-bold ph-basket text-yellow-300 text-xl leading-none"></i>
+          <span class="text-[9px] font-black text-yellow-300 mt-0.5">₹100 OFF</span>
+        </div>
+      </div>
+      <div class="my-2">
+        <h2 class="text-base font-black leading-tight">ଅଟା, ତେଲ, ଡାଲି ଓ ମସଲା<br>ହୋଲସେଲ୍ ଦରରେ!</h2>
+        <p class="text-[11px] text-emerald-100 mt-1">₹୯୯୯ ରୁ ଅଧିକ କିଣାକିଣିରେ ସିଧାସଳଖ ₹୧୦୦ ଫ୍ଲାଟ୍ ରିହାତି</p>
+      </div>
+      <div class="flex items-center justify-between pt-1 border-t border-white/10 text-[11px]">
+        <button onclick="filterCategory('Sunflower Oil')" class="text-white hover:text-yellow-300 font-bold flex items-center gap-1">
+          <i class="ph-bold ph-arrow-circle-right"></i> ଗ୍ରୋସରୀ ଦେଖନ୍ତୁ
+        </button>
+        <span class="bg-black/20 px-2 py-0.5 rounded-md text-[10px] font-medium text-emerald-200">100% Pure & Fresh</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="max-w-md mx-auto px-3.5 mt-3">
+    <div id="catsPillContainer" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1"></div>
+  </section>
+
+  <main class="max-w-md mx-auto px-3.5 mt-3">
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="text-xs font-extrabold text-slate-800 flex items-center gap-1">
+        <i class="ph-fill ph-fire text-rose-500"></i>
+        <span>ଲୋକପ୍ରିୟ ସାମଗ୍ରୀ (BEST OFFERS & DEALS)</span>
+      </h3>
+      <span id="productCountBadge" class="text-[11px] font-semibold text-slate-500">0 ଟି ସାମଗ୍ରୀ</span>
+    </div>
+    <div id="grid" class="grid grid-cols-2 gap-2.5"></div>
+    <div id="emptyView" class="hidden py-12 text-center">
+      <i class="ph-bold ph-magnifying-glass text-4xl text-slate-300 mx-auto mb-2"></i>
+      <h4 class="font-bold text-slate-700 text-sm">କୌଣସି ସାମଗ୍ରୀ ମିଳିଲା ନାହିଁ</h4>
+      <p class="text-xs text-slate-400 mt-1">ଅନ୍ୟ କିଛି ଶବ୍ଦ ଖୋଜନ୍ତୁ।</p>
+    </div>
+  </main>
+
+  <div class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-xl">
+    <div class="max-w-md mx-auto px-4 py-2.5 flex items-center justify-between">
+      <div onclick="openCartDrawer()" class="cursor-pointer flex items-center gap-2.5">
+        <div class="relative w-10 h-10 rounded-xl bg-[#1864ab] text-white flex items-center justify-center">
+          <i class="ph-bold ph-shopping-bag text-lg"></i>
+          <span id="floatingCartBadge" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#f59f00] text-slate-950 text-[10px] font-black flex items-center justify-center border-2 border-white">0</span>
+        </div>
+        <div>
+          <span class="text-[10px] text-slate-400 font-bold block leading-none">ମୋଟ ମୂଲ୍ୟ</span>
+          <span id="floatingCartTotal" class="text-sm font-black text-slate-900 mt-0.5">Rs.0</span>
+        </div>
+      </div>
+      <button onclick="openCartDrawer()" class="px-5 py-2.5 rounded-xl bg-[#1864ab] hover:bg-blue-800 text-white font-extrabold text-xs shadow-md shadow-blue-600/30 active:scale-95 transition-all flex items-center gap-1.5">
+        <span>କାର୍ଟ ଦେଖନ୍ତୁ / Checkout</span>
+        <i class="ph-bold ph-arrow-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <div id="cartDrawerBackdrop" onclick="closeCartDrawer()" class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 hidden opacity-0 transition-opacity duration-300"></div>
+  <div id="cartDrawer" class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-3xl shadow-2xl z-50 transform translate-y-full transition-transform duration-300 ease-out flex flex-col max-h-[85vh]">
+    <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+      <h3 class="font-extrabold text-slate-900 text-sm flex items-center gap-1.5">
+        <i class="ph-bold ph-shopping-cart text-[#1864ab]"></i>
+        <span>ଆପଣଙ୍କ କାର୍ଟ (Your Cart)</span>
+      </h3>
+      <button onclick="closeCartDrawer()" class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+        <i class="ph-bold ph-x text-sm"></i>
+      </button>
+    </div>
+    <div id="cartItemsContainer" class="p-4 overflow-y-auto space-y-2.5 flex-1 no-scrollbar"></div>
+    <div id="cartFooterView" class="p-4 bg-slate-50 border-t border-slate-100">
+      <div class="space-y-1 text-xs font-semibold text-slate-600 pb-2.5 border-b border-slate-200">
+        <div class="flex justify-between">
+          <span>ସର୍ବମୋଟ (Total):</span>
+          <span id="summaryTotal" class="text-sm font-extrabold text-[#1864ab]">Rs.0</span>
+        </div>
+      </div>
+      <div class="mt-2.5 space-y-2">
+        <input type="text" id="orderCustName" placeholder="ଆପଣଙ୍କ ନାମ (Name)" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white outline-none">
+        <input type="tel" id="orderCustPhone" placeholder="ଫୋନ୍ ନମ୍ବର (Phone Number)" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white outline-none">
+        <input type="text" id="orderCustAddress" placeholder="ଡେଲିଭରୀ ଠିକଣା (Delivery Address)" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white outline-none">
+      </div>
+      <button onclick="submitOrder()" class="mt-3 w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/30 active:scale-95 transition-all flex items-center justify-center gap-1.5">
+        <i class="ph-bold ph-paper-plane-tilt"></i>
+        <span>ଅର୍ଡର ନିଶ୍ଚିତ କରନ୍ତୁ (Confirm Order)</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="adminPinModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-xs rounded-2xl p-5 shadow-2xl text-center">
+      <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-2">
+        <i class="ph-bold ph-lock-key text-xl"></i>
+      </div>
+      <h3 class="font-extrabold text-slate-900 text-sm">ଦୋକାନ ଆଡମିନ୍ ପିନ୍</h3>
+      <p class="text-[11px] text-slate-500 mt-0.5">PIN ପ୍ରବେଶ କରନ୍ତୁ (Default: 1234)</p>
+      <input type="password" id="adminPinInput" maxlength="6" placeholder="PIN" class="my-3 text-center tracking-widest text-base font-bold w-28 mx-auto py-1 border-b-2 border-amber-500 outline-none">
+      <div class="flex items-center gap-2">
+        <button onclick="closeAdminPinModal()" class="w-1/2 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">ବାତିଲ୍</button>
+        <button onclick="verifyAdminPin()" class="w-1/2 py-2 rounded-xl bg-[#1864ab] text-white text-xs font-extrabold">ଲଗଇନ୍</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="adminDashboard" class="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 hidden overflow-y-auto">
+    <div class="min-h-full max-w-md mx-auto bg-slate-50 border-x border-slate-200 flex flex-col">
+      <div class="bg-[#1864ab] text-white px-4 py-3 flex items-center justify-between sticky top-0 z-10 shadow-md">
+        <div class="flex items-center gap-2">
+          <i class="ph-bold ph-gear text-amber-400"></i>
+          <span class="font-bold text-xs">MUNNA Store Admin Panel</span>
+        </div>
+        <button onclick="closeAdminDashboard()" class="w-6 h-6 rounded bg-blue-900 text-white flex items-center justify-center">
+          <i class="ph-bold ph-x text-xs"></i>
+        </button>
+      </div>
+
+      <div class="p-3.5 space-y-3 flex-1">
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-[11px] font-bold text-slate-700">Google Sheet Apps Script Webhook</label>
+            <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">Live Sync</span>
+          </div>
+          <div class="flex gap-1.5">
+            <input type="text" id="webhookInput" placeholder="https://script.google.com/macros/s/.../exec" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none">
+            <button onclick="saveWebhook()" class="px-2.5 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg shrink-0">Save</button>
+            <button onclick="manualSync()" id="syncNowBtn" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shrink-0 flex items-center gap-1">
+              <i class="ph-bold ph-arrows-clockwise"></i>
+              <span>Sync</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs" id="adminFormCard">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-xs font-black uppercase text-slate-700 flex items-center gap-1" id="formHeaderTitle">
+              <i class="ph-bold ph-plus-circle text-emerald-600"></i> 
+              <span>+ Add / Smart Search Product</span>
+            </h4>
+            <button onclick="resetAdminForm()" id="cancelEditBtn" class="hidden text-[10px] bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-md font-bold">
+              Cancel Edit
+            </button>
+          </div>
+
+          <div class="bg-blue-50/70 border border-blue-200 p-2.5 rounded-xl mb-3 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-extrabold text-blue-900 flex items-center gap-1">
+                <i class="ph-bold ph-magnifying-glass text-[#1864ab]"></i> Search Source
+              </span>
+              <div class="flex items-center bg-white p-0.5 rounded-lg border border-blue-300 text-[10px] font-bold">
+                <button type="button" id="toggleJioBtn" onclick="setSearchSource('jiomart')" class="px-2 py-0.5 rounded-md bg-[#1864ab] text-white">JioMart</button>
+                <button type="button" id="toggleWebBtn" onclick="setSearchSource('web')" class="px-2 py-0.5 rounded-md text-slate-600">Other API</button>
+              </div>
+            </div>
+
+            <div id="pincodeWrapper" class="flex items-center gap-1.5 pt-1 border-t border-blue-200/60">
+              <span class="text-[10px] font-bold text-blue-800 shrink-0">Pincode:</span>
+              <input type="number" id="searchPincode" value="752106" placeholder="752106" class="w-24 text-xs px-2 py-1 bg-white border border-blue-300 rounded-md outline-none font-bold text-[#1864ab]">
+              <span class="text-[9px] text-slate-500 leading-tight">(Default: Niali 752106)</span>
+            </div>
+          </div>
+
+          <form onsubmit="handleAdminFormSubmit(event)" class="space-y-2.5">
+            <input type="hidden" id="editEan" value="">
+            <input type="hidden" id="editRowIndex" value="">
+
+            <div>
+              <label class="text-[11px] font-bold text-slate-700">Product Name (ସାମଗ୍ରୀର ନାମ)</label>
+              <div class="flex gap-1 mt-0.5">
+                <input 
+                  type="text" 
+                  id="newProdName" 
+                  required 
+                  placeholder="e.g. Atta, Fortune Oil, Horlicks" 
+                  class="w-full text-xs px-2.5 py-2 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]"
+                >
+                <button 
+                  type="button" 
+                  onclick="triggerLiveSearch()"
+                  id="smartSearchBtn"
+                  class="px-3 py-1.5 bg-[#1864ab] hover:bg-blue-800 text-white text-[11px] font-bold rounded-lg shrink-0 flex items-center gap-1 shadow-xs"
+                >
+                  <i class="ph-bold ph-magnifying-glass"></i>
+                  <span>Search</span>
+                </button>
+              </div>
+              <p class="text-[10px] text-slate-400 mt-0.5">JioMart ରୁ ଲାଇଭ୍ ଫଟୋ, MRP ଓ Selling Price ଆଣିବାକୁ Search ଦବାନ୍ତୁ।</p>
+            </div>
+
+            <div id="imageDropdownContainer" class="hidden bg-slate-50 border-2 border-dashed border-blue-300 rounded-2xl p-3 my-2 transition-all">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+                <span class="text-xs font-extrabold text-[#1864ab] flex items-center gap-1">
+                  <i class="ph-bold ph-sparkle text-amber-500"></i>
+                  <span id="resultsHeaderTitle">JioMart Results:</span>
+                </span>
+                <button type="button" onclick="closeImageDropdown()" class="text-slate-400 hover:text-rose-500">
+                  <i class="ph-bold ph-x-circle text-base"></i>
+                </button>
+              </div>
+              <div id="imageGridResults" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 max-h-60 overflow-y-auto pr-1"></div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-[11px] font-bold text-slate-700">MRP (ଅସଲି ଦର)</label>
+                <input type="number" id="newProdMRP" required placeholder="0" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+              </div>
+              <div>
+                <label class="text-[11px] font-bold text-slate-700">Selling Price (ବିକ୍ରି ଦର)</label>
+                <input type="number" id="newProdSP" required placeholder="0" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-[11px] font-bold text-slate-700">Stock Qty (ମୋଟ ଷ୍ଟକ୍)</label>
+                <input type="number" id="newProdStock" required placeholder="10" value="10" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+              </div>
+              <div>
+                <label class="text-[11px] font-bold text-slate-700">Category (ବର୍ଗ)</label>
+                <input type="text" id="newProdCat" required placeholder="Atta, Oil, Sugar..." class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+              </div>
+            </div>
+
+            <div>
+              <label class="text-[11px] font-bold text-slate-700">Image URL (ଫଟୋ ଲିଙ୍କ୍)</label>
+              <input type="url" id="newProdImg" oninput="updateImagePreview(this.value)" placeholder="https://..." class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+              
+              <div id="imgPreviewBox" class="hidden mt-2 p-1.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center gap-2">
+                <img id="imgPreviewTag" src="" class="w-10 h-10 object-contain bg-white rounded border border-slate-100" alt="Preview">
+                <span class="text-[10px] text-emerald-600 font-bold">Image Selected & Ready!</span>
+              </div>
+            </div>
+
+            <button type="submit" id="adminFormSubmitBtn" class="w-full py-2.5 bg-[#1864ab] hover:bg-blue-800 text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center justify-center gap-1.5 transition-all">
+              <i class="ph-bold ph-floppy-disk"></i>
+              <span id="submitBtnLabel">Save & Publish to Sheet</span>
+            </button>
+          </form>
+        </div>
+
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-xs font-black uppercase text-slate-500">Live Sheet Items (ପୁରୁଣା ସାମଗ୍ରୀ)</h4>
+            <span id="adminTotalItems" class="text-xs font-bold text-[#1864ab]">0 Items</span>
+          </div>
+
+          <div class="relative mb-2.5">
+            <i class="ph-bold ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input 
+              type="text" 
+              id="adminSearchInput" 
+              placeholder="ପୁରୁଣା ସାମଗ୍ରୀ ଖୋଜନ୍ତୁ..." 
+              oninput="handleAdminSearch(this.value)"
+              class="w-full pl-8 pr-7 py-1.5 bg-slate-100 text-xs rounded-lg border border-slate-200 outline-none focus:bg-white focus:border-[#1864ab]"
+            >
+            <button id="adminClearSearchBtn" onclick="clearAdminSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              <i class="ph-bold ph-x-circle text-xs"></i>
+            </button>
+          </div>
+
+          <div id="adminInventoryList" class="space-y-2 max-h-72 overflow-y-auto no-scrollbar"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var currentSearchSource = "jiomart";
+
+    function setSearchSource(src) {
+      currentSearchSource = src;
+      var jioBtn = document.getElementById('toggleJioBtn');
+      var webBtn = document.getElementById('toggleWebBtn');
+      var pinBox = document.getElementById('pincodeWrapper');
+
+      if (src === 'jiomart') {
+        jioBtn.className = "px-2 py-0.5 rounded-md bg-[#1864ab] text-white";
+        webBtn.className = "px-2 py-0.5 rounded-md text-slate-600";
+        pinBox.classList.remove('hidden');
+      } else {
+        webBtn.className = "px-2 py-0.5 rounded-md bg-[#1864ab] text-white";
+        jioBtn.className = "px-2 py-0.5 rounded-md text-slate-600";
+        pinBox.classList.add('hidden');
+      }
+    }
+
+    async function triggerLiveSearch() {
+      var q = document.getElementById('newProdName').value.trim();
+      var pin = document.getElementById('searchPincode').value.trim() || '752106';
+
+      if (!q || q.length < 2) {
+        alert("ଦୟାକରି ସାମଗ୍ରୀର ନାମ ଲେଖନ୍ତୁ!");
+        return;
+      }
+
+      var searchBtn = document.getElementById('smartSearchBtn');
+      searchBtn.disabled = true;
+      searchBtn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> Searching...';
+
+      var dropdown = document.getElementById('imageDropdownContainer');
+      var grid = document.getElementById('imageGridResults');
+      var headerTitle = document.getElementById('resultsHeaderTitle');
+      dropdown.classList.remove('hidden');
+
+      grid.innerHTML = '<div class="col-span-full py-4 text-center text-xs text-blue-600 font-bold"><i class="ph-bold ph-spinner animate-spin"></i> JioMart (PIN: ' + pin + ') ଲାଇଭ୍ ଡାଟା ଖୋଜା ଚାଲିଛି...</div>';
+
+      var results = [];
+
+      if (currentSearchSource === 'jiomart') {
+        headerTitle.innerText = `JioMart Results (PIN: ${pin}):`;
+
+        // 1. Check Local/Render Python Server
+        try {
+          var localServerUrl = `http://localhost:8085/?q=${encodeURIComponent(q)}&pincode=${encodeURIComponent(pin)}`;
+          var localRes = await fetch(localServerUrl);
+          var localData = await localRes.json();
+          if (localData && localData.status === "success" && Array.isArray(localData.items) && localData.items.length > 0) {
+            results = localData.items;
+          }
+        } catch(e) {}
+
+        // 2. Apps Script Proxy
+        if (results.length === 0) {
+          var hook = localStorage.getItem('munna_sheet_webhook');
+          if (hook) {
+            try {
+              var cleanHook = hook.split('?')[0];
+              var fetchUrl = `${cleanHook}?action=SEARCH_JIOMART&query=${encodeURIComponent(q)}&pincode=${encodeURIComponent(pin)}`;
+              var res = await fetch(fetchUrl);
+              var data = await res.json();
+              if (data && data.status === "success" && Array.isArray(data.items) && data.items.length > 0) {
+                results = data.items;
+              }
+            } catch(e) {}
+          }
+        }
+
+        // 3. Fallback Web Proxy
+        if (results.length === 0) {
+          try {
+            var targetJioUrl = `https://www.jiomart.com/api/service/application/catalog/v1.0/products?q=${encodeURIComponent(q)}&page_size=12&page_no=1`;
+            var proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetJioUrl)}`;
+            var proxyRes = await fetch(proxyUrl);
+            var proxyJson = await proxyRes.json();
+            
+            if (proxyJson && proxyJson.contents) {
+              var jioData = JSON.parse(proxyJson.contents);
+              var items = jioData.items || (jioData.data && jioData.data.items) || [];
+              
+              items.forEach(function(item) {
+                var imgUrl = "";
+                if (item.medias && item.medias.length > 0) {
+                  for (var m = 0; m < item.medias.length; m++) {
+                    var media = item.medias[m];
+                    if (media.url && (!media.type || String(media.type).toLowerCase() === "image")) {
+                      imgUrl = media.url;
+                      break;
+                    }
+                  }
+                }
+
+                var mrp = 0;
+                var sp = 0;
+                if (item.price) {
+                  if (item.price.marked) mrp = item.price.marked.min || item.price.marked.max || item.price.marked;
+                  if (item.price.effective) sp = item.price.effective.min || item.price.effective.max || item.price.effective;
+                }
+
+                var cat = "Grocery";
+                if (item.hierarchy && item.hierarchy.l3_category) {
+                  cat = item.hierarchy.l3_category.name;
+                } else if (item.hierarchy && item.hierarchy.l2_category) {
+                  cat = item.hierarchy.l2_category.name;
+                }
+
+                if (imgUrl) {
+                  results.push({
+                    title: item.name || "Product",
+                    url: imgUrl,
+                    mrp: mrp ? String(mrp) : "",
+                    sp: sp ? String(sp) : "",
+                    cat: cat,
+                    source: "JioMart"
+                  });
+                }
+              });
+            }
+          } catch(err) {}
+        }
+      }
+
+      if (currentSearchSource === 'web' || (results.length === 0 && currentSearchSource === 'web')) {
+        headerTitle.innerText = "Global Web API Results:";
+        try {
+          var cleanQ = q.toLowerCase().replace(/fartune/g, "fortune").replace(/horliks/g, "horlicks");
+          var apiUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(cleanQ)}&search_simple=1&action=process&json=1&page_size=15`;
+          var resWeb = await fetch(apiUrl);
+          var jsonWeb = await resWeb.json();
+          if (jsonWeb && jsonWeb.products) {
+            jsonWeb.products.forEach(p => {
+              var img = p.image_front_url || p.image_url;
+              if (img) {
+                results.push({
+                  title: p.product_name || q,
+                  url: img,
+                  mrp: "",
+                  sp: "",
+                  cat: p.categories ? p.categories.split(',')[0].trim() : "General",
+                  source: "Web"
+                });
+              }
+            });
+          }
+        } catch(e) {}
+      }
+
+      searchBtn.disabled = false;
+      searchBtn.innerHTML = '<i class="ph-bold ph-magnifying-glass"></i> <span>Search</span>';
+
+      if (results.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-3 text-center space-y-2">
+            <p class="text-xs text-rose-500 font-bold">କୌଣସି ସାମଗ୍ରୀ ସିଧାସଳଖ ମିଳିଲା ନାହିଁ।</p>
+            <a href="https://www.jiomart.com/products?q=${encodeURIComponent(q)}" target="_blank" 
+               class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#1864ab] hover:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-xs">
+              <i class="ph-bold ph-arrow-square-out"></i>
+              <span>JioMart ରେ '${q}' ଖୋଲନ୍ତୁ</span>
+            </a>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = results.map(item => `
+        <div onclick="selectProductToForm('${encodeURIComponent(item.url)}', '${encodeURIComponent(item.title)}', '${encodeURIComponent(item.cat || "General")}', '${item.mrp || ""}', '${item.sp || ""}')"
+             class="group cursor-pointer bg-white p-2 rounded-xl border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all flex flex-col items-center text-center">
+          <div class="w-full h-24 bg-slate-50 rounded-lg overflow-hidden flex items-center justify-center mb-1.5 p-1 relative">
+            <span class="absolute top-1 left-1 bg-black/60 text-white text-[8px] font-bold px-1 rounded">${item.source}</span>
+            <img src="${item.url}" class="w-full h-full object-contain group-hover:scale-105 transition-transform" onerror="this.parentElement.parentElement.style.display='none'">
+          </div>
+          <span class="text-[10px] font-bold text-slate-700 line-clamp-1 w-full">${item.title}</span>
+          ${item.sp ? `<span class="text-[10px] font-extrabold text-emerald-600 mt-0.5">₹${item.sp}${item.mrp ? `<span class="line-through text-slate-400 font-normal text-[9px]">₹${item.mrp}</span>` : ''}</span>` : ''}
+          <span class="mt-1 text-[9px] bg-blue-50 text-blue-700 font-extrabold px-1.5 py-0.5 rounded group-hover:bg-blue-600 group-hover:text-white transition-all">
+            ଚୟନ କରନ୍ତୁ
+          </span>
+        </div>
+      `).join('');
+    }
+
+    function selectProductToForm(encodedUrl, encodedTitle, encodedCat, mrp, sp) {
+      var url = decodeURIComponent(encodedUrl);
+      var title = decodeURIComponent(encodedTitle);
+      var cat = decodeURIComponent(encodedCat);
+
+      document.getElementById('newProdImg').value = url;
+      updateImagePreview(url);
+
+      if (title) document.getElementById('newProdName').value = title;
+      if (cat && cat !== "General") document.getElementById('newProdCat').value = cat;
+      if (mrp) document.getElementById('newProdMRP').value = mrp;
+      if (sp) document.getElementById('newProdSP').value = sp;
+
+      closeImageDropdown();
+      alert("JioMart ରୁ ଫଟୋ, MRP (₹" + mrp + ") ଏବଂ Selling Price (₹" + sp + ") ସଫଳତାର ସହ ଆସିଗଲା!");
+    }
+
+    function closeImageDropdown() {
+      document.getElementById('imageDropdownContainer').classList.add('hidden');
+    }
+
+    function updateImagePreview(url) {
+      var box = document.getElementById('imgPreviewBox');
+      var img = document.getElementById('imgPreviewTag');
+      if (url && url.startsWith('http')) {
+        img.src = url;
+        box.classList.remove('hidden');
+      } else {
+        box.classList.add('hidden');
+      }
+    }
+
+    window.STORE_CATALOG = [
+      {"rowIndex": 2, "ean": "7533476", "product_name": "Freedom Refined Sunflower Oil 1 L", "mrp": "230", "selling_price": "169", "stock_qty": "10", "image_url": "https://cdn1.jiomartjcp.com/v2/catalog-cloud/jiomar/original/images/othe/egurhk/.j/pg/0000000004907689361.jpg.1947779d4b.jpg", "category": "Sunflower Oil"}
+    ];
+
+    const localSaved = localStorage.getItem('munna_store_catalog');
+    if (localSaved) {
+      try { window.STORE_CATALOG = JSON.parse(localSaved); } catch(e){}
+    }
+
+    var tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    if (tg) { tg.ready(); tg.expand(); }
+
+    var cart = {};
+    var activeCat = "All";
+    var query = "";
+    var adminSearchQuery = "";
+    var isEnglish = false;
+
+    function money(v) { var n = parseFloat(v) || 0; return (Math.round(n * 100) / 100).toString(); }
+    function catOf(p) { return (((p.category || "General") + "").trim()) || "General"; }
+
+    function getCategories() {
+      var seen = {}, out = ["All"];
+      for (var i = 0; i < window.STORE_CATALOG.length; i++) {
+        var c = catOf(window.STORE_CATALOG[i]);
+        if (!seen[c]) { seen[c] = 1; out.push(c); }
+      }
+      return out;
+    }
+
+    function renderCategoryPills() {
+      var box = document.getElementById("catsPillContainer");
+      box.innerHTML = "";
+      getCategories().forEach(function (c) {
+        var b = document.createElement("button");
+        b.className = (c === activeCat) 
+          ? "shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all bg-[#1864ab] text-white shadow-xs"
+          : "shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all bg-white text-slate-700 border border-slate-200 hover:bg-slate-50";
+        b.textContent = c === "All" ? "ସବୁ ଜିନିଷ (All)" : c;
+        b.onclick = function () { activeCat = c; render(); };
+        box.appendChild(b);
+      });
+    }
+
+    function setQty(ean, qty) {
+      qty = Math.max(0, Math.min(99, qty | 0));
+      if (qty <= 0) delete cart[ean]; else cart[ean] = qty;
+      render();
+      renderCartDrawer();
+    }
+
+    function render() {
+      renderCategoryPills();
+      var grid = document.getElementById("grid");
+      var empty = document.getElementById("emptyView");
+      grid.innerHTML = "";
+
+      var q = query.trim().toLowerCase();
+      var filtered = [];
+
+      for (var i = 0; i < window.STORE_CATALOG.length; i++) {
+        var p = window.STORE_CATALOG[i];
+        if (activeCat !== "All" && catOf(p) !== activeCat) continue;
+        if (q && (p.product_name || "").toLowerCase().indexOf(q) < 0) continue;
+        filtered.push(p);
+      }
+
+      document.getElementById("productCountBadge").innerText = `${filtered.length} ଟି ସାମଗ୍ରୀ`;
+
+      if (filtered.length === 0) {
+        empty.classList.remove("hidden");
+      } else {
+        empty.classList.add("hidden");
+        filtered.forEach(function(p) {
+          var qty = cart[p.ean] || 0;
+          var mrpVal = parseFloat(p.mrp) || 0;
+          var spVal = parseFloat(p.selling_price) || 0;
+          var discount = mrpVal > spVal ? Math.round(((mrpVal - spVal) / mrpVal) * 100) : 0;
+
+          var card = document.createElement("div");
+          card.className = "bg-white rounded-2xl p-2.5 border border-slate-200 shadow-xs flex flex-col justify-between relative";
+
+          card.innerHTML = `
+            ${discount > 0 ? `<span class="absolute top-2 left-2 z-10 bg-orange-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-md">${discount}% OFF</span>` : ''}
+            <div class="w-full h-32 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden">
+              <img src="${p.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80'}" alt="${p.product_name}" class="w-full h-full object-contain p-1" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80'">
+            </div>
+            <div class="mt-2 flex-1 flex flex-col justify-between">
+              <h4 class="text-xs font-bold text-slate-800 line-clamp-2 leading-tight">${p.product_name}</h4>
+              <div class="flex items-center gap-1 mt-1.5">
+                <span class="bg-emerald-600 text-white text-[9px] font-bold px-1 rounded flex items-center gap-0.5">
+                  4.8 <i class="ph-fill ph-star text-[8px]"></i>
+                </span>
+                <span class="text-[10px] text-slate-400 font-semibold">Stock: ${p.stock_qty || 10}</span>
+              </div>
+              <div class="flex items-baseline gap-1 mt-1">
+                <span class="text-sm font-black text-slate-900">Rs.${money(p.selling_price)}</span>
+                ${mrpVal > spVal ? `<span class="text-[11px] text-slate-400 line-through">Rs.${money(p.mrp)}</span>` : ''}
+              </div>
+            </div>
+            <div class="mt-2" id="action-box-${p.ean}"></div>
+          `;
+
+          var actionBox = card.querySelector(`#action-box-${p.ean}`);
+          if (qty > 0) {
+            actionBox.innerHTML = `
+              <div class="flex items-center justify-between bg-slate-900 text-white rounded-xl px-1.5 py-1">
+                <button onclick="setQty('${p.ean}', ${qty - 1})" class="w-6 h-6 rounded bg-slate-800 flex items-center justify-center text-xs"><i class="ph-bold ph-minus"></i></button>
+                <span class="text-xs font-bold">${qty}</span>
+                <button onclick="setQty('${p.ean}', ${qty + 1})" class="w-6 h-6 rounded bg-[#1864ab] flex items-center justify-center text-xs"><i class="ph-bold ph-plus"></i></button>
+              </div>
+            `;
+          } else {
+            actionBox.innerHTML = `
+              <button onclick="setQty('${p.ean}', 1)" class="w-full py-1.5 rounded-xl bg-blue-50 text-[#1864ab] hover:bg-[#1864ab] hover:text-white border border-blue-200 text-xs font-bold transition-all flex items-center justify-center gap-1">
+                <i class="ph-bold ph-plus"></i> କାର୍ଟରେ ଯୋଡ଼ନ୍ତୁ
+              </button>
+            `;
+          }
+          grid.appendChild(card);
+        });
+      }
+      renderBar();
+    }
+
+    function renderBar() {
+      var keys = Object.keys(cart), n = 0, total = 0;
+      for (var k = 0; k < keys.length; k++) {
+        var p = window.STORE_CATALOG.find(x => String(x.ean) === String(keys[k]));
+        if (!p) continue;
+        n += cart[keys[k]];
+        total += (parseFloat(p.selling_price) || 0) * cart[keys[k]];
+      }
+      document.getElementById("floatingCartBadge").innerText = n;
+      document.getElementById("floatingCartTotal").innerText = "Rs." + money(total);
+    }
+
+    function openCartDrawer() {
+      document.getElementById('cartDrawerBackdrop').classList.remove('hidden');
+      setTimeout(() => {
+        document.getElementById('cartDrawerBackdrop').classList.add('opacity-100');
+        document.getElementById('cartDrawer').classList.remove('translate-y-full');
+      }, 10);
+      renderCartDrawer();
+    }
+
+    function closeCartDrawer() {
+      document.getElementById('cartDrawer').classList.add('translate-y-full');
+      document.getElementById('cartDrawerBackdrop').classList.remove('opacity-100');
+      setTimeout(() => document.getElementById('cartDrawerBackdrop').classList.add('hidden'), 300);
+    }
+
+    function renderCartDrawer() {
+      var container = document.getElementById('cartItemsContainer');
+      var items = Object.keys(cart);
+      if (items.length === 0) {
+        container.innerHTML = '<p class="text-center text-xs text-slate-400 py-6">କାର୍ଟ ଖାଲି ଅଛି (Cart is empty)</p>';
+        document.getElementById('summaryTotal').innerText = 'Rs.0';
+        return;
+      }
+      var total = 0;
+      container.innerHTML = items.map(ean => {
+        var p = window.STORE_CATALOG.find(x => String(x.ean) === String(ean));
+        if (!p) return '';
+        var qty = cart[ean];
+        var sub = (parseFloat(p.selling_price) || 0) * qty;
+        total += sub;
+        return `
+          <div class="flex items-center justify-between bg-slate-50 p-2 rounded-xl text-xs">
+            <span class="font-bold line-clamp-1 flex-1">${p.product_name}</span>
+            <span class="font-bold px-2">x${qty}</span>
+            <span class="font-black text-[#1864ab]">Rs.${money(sub)}</span>
+          </div>
+        `;
+      }).join('');
+      document.getElementById('summaryTotal').innerText = "Rs." + money(total);
+    }
+
+    function submitOrder() {
+      var items = Object.keys(cart).map(ean => ({ ean: ean, qty: cart[ean] }));
+      if (!items.length) { alert("Your cart is empty!"); return; }
+
+      var name = document.getElementById('orderCustName').value.trim() || 'Customer';
+      var phone = document.getElementById('orderCustPhone').value.trim();
+      var address = document.getElementById('orderCustAddress').value.trim();
+
+      if (!phone || !address) {
+        alert("ଦୟାକରି ଫୋନ୍ ନମ୍ବର ଏବଂ ଠିକଣା ପ୍ରବେଶ କରନ୍ତୁ!");
+        return;
+      }
+
+      var total = 0;
+      var text = `🛍️ *ନୂଆ ଅର୍ଡର - MUNNA STORE*\n👤 ଗ୍ରାହକ: ${name}\n📞 ଫୋନ୍: ${phone}\n📍 ଠିକଣା: ${address}\n\n*ସାମଗ୍ରୀ:*`;
+      items.forEach(it => {
+        var p = window.STORE_CATALOG.find(x => String(x.ean) === String(it.ean));
+        if (p) {
+          var sub = (parseFloat(p.selling_price) || 0) * it.qty;
+          total += sub;
+          text += `\n• ${p.product_name} x${it.qty} = Rs.${sub}`;
+        }
+      });
+      text += `\n\n*ମୋଟ: Rs.${money(total)}*`;
+
+      if (tg && tg.sendData) {
+        tg.sendData(JSON.stringify({ action: "ORDER", customer: name, phone: phone, address: address, total: total, items: items }));
+        closeCartDrawer();
+      } else {
+        window.open(`https://wa.me/919933223322?text=${encodeURIComponent(text)}`, '_blank');
+      }
+    }
+
+    function handleSearch(val) {
+      query = val || "";
+      document.getElementById('clearSearchBtn').classList.toggle('hidden', !query);
+      render();
+    }
+    function clearSearch() {
+      document.getElementById('searchInput').value = "";
+      query = "";
+      document.getElementById('clearSearchBtn').classList.add('hidden');
+      render();
+    }
+    function filterCategory(cat) { activeCat = cat; render(); }
+    function toggleLang() {
+      isEnglish = !isEnglish;
+      document.getElementById('langBtnText').innerText = isEnglish ? "ଓଡ଼ିଆ" : "English";
+    }
+
+    function toggleProfileDrawer() {
+      var d = document.getElementById('profileDrawer');
+      var b = document.getElementById('profileDrawerBackdrop');
+      if (b && d) {
+        if (b.classList.contains('hidden')) {
+          b.classList.remove('hidden');
+          setTimeout(() => { b.classList.add('opacity-100'); d.classList.remove('translate-y-full'); }, 10);
+        } else {
+          d.classList.add('translate-y-full');
+          b.classList.remove('opacity-100');
+          setTimeout(() => b.classList.add('hidden'), 300);
+        }
+      }
+    }
+
+    function openAdminModal() {
+      document.getElementById('adminPinModal').classList.remove('hidden');
+      document.getElementById('adminPinInput').value = '';
+      document.getElementById('adminPinInput').focus();
+    }
+    function closeAdminPinModal() { document.getElementById('adminPinModal').classList.add('hidden'); }
+    function verifyAdminPin() {
+      if (document.getElementById('adminPinInput').value === '1234') {
+        closeAdminPinModal();
+        openAdminDashboard();
+      } else {
+        alert("ଭୁଲ୍ PIN (Default: 1234)!");
+      }
+    }
+    function openAdminDashboard() {
+      document.getElementById('adminDashboard').classList.remove('hidden');
+      renderAdminList();
+      var hook = localStorage.getItem('munna_sheet_webhook');
+      if (hook) document.getElementById('webhookInput').value = hook;
+    }
+    function closeAdminDashboard() { 
+      document.getElementById('adminDashboard').classList.add('hidden'); 
+      resetAdminForm();
+    }
+    
+    function saveWebhook() {
+      var u = document.getElementById('webhookInput').value.trim();
+      localStorage.setItem('munna_sheet_webhook', u);
+      alert("Webhook URL Saved!");
+      syncFromGoogleSheet();
+    }
+
+    function editAdminProduct(idx) {
+      var p = window.STORE_CATALOG[idx];
+      if (!p) return;
+
+      document.getElementById('editEan').value = p.ean;
+      document.getElementById('editRowIndex').value = p.rowIndex || '';
+      document.getElementById('newProdName').value = p.product_name;
+      document.getElementById('newProdMRP').value = p.mrp;
+      document.getElementById('newProdSP').value = p.selling_price;
+      document.getElementById('newProdStock').value = p.stock_qty || 10;
+      document.getElementById('newProdCat').value = p.category || 'General';
+      document.getElementById('newProdImg').value = p.image_url || '';
+      updateImagePreview(p.image_url || '');
+
+      document.getElementById('formHeaderTitle').innerHTML = '<i class="ph-bold ph-pencil-simple text-amber-600"></i> <span>Edit (' + p.product_name + ')</span>';
+      document.getElementById('submitBtnLabel').innerText = "Update & Save to Sheet";
+      document.getElementById('cancelEditBtn').classList.remove('hidden');
+
+      document.getElementById('adminFormCard').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function resetAdminForm() {
+      document.getElementById('editEan').value = '';
+      document.getElementById('editRowIndex').value = '';
+      document.getElementById('newProdName').value = '';
+      document.getElementById('newProdMRP').value = '';
+      document.getElementById('newProdSP').value = '';
+      document.getElementById('newProdStock').value = '10';
+      document.getElementById('newProdCat').value = '';
+      document.getElementById('newProdImg').value = '';
+      updateImagePreview('');
+      closeImageDropdown();
+
+      document.getElementById('formHeaderTitle').innerHTML = '<i class="ph-bold ph-plus-circle text-emerald-600"></i> <span>+ Add / Smart Search Product</span>';
+      document.getElementById('submitBtnLabel').innerText = "Save & Publish to Sheet";
+      document.getElementById('cancelEditBtn').classList.add('hidden');
+    }
+
+    function handleAdminSearch(val) {
+      adminSearchQuery = (val || "").trim().toLowerCase();
+      document.getElementById('adminClearSearchBtn').classList.toggle('hidden', !adminSearchQuery);
+      renderAdminList();
+    }
+
+    function clearAdminSearch() {
+      document.getElementById('adminSearchInput').value = "";
+      adminSearchQuery = "";
+      document.getElementById('adminClearSearchBtn').classList.add('hidden');
+      renderAdminList();
+    }
+
+    function renderAdminList() {
+      var box = document.getElementById('adminInventoryList');
+      var totalBadge = document.getElementById('adminTotalItems');
+
+      var filtered = window.STORE_CATALOG.filter(function(p) {
+        if (!adminSearchQuery) return true;
+        return (p.product_name || "").toLowerCase().includes(adminSearchQuery) ||
+               (p.category || "").toLowerCase().includes(adminSearchQuery) ||
+               String(p.ean || "").toLowerCase().includes(adminSearchQuery);
+      });
+
+      totalBadge.innerText = `${filtered.length} / ${window.STORE_CATALOG.length} Items`;
+
+      if (filtered.length === 0) {
+        box.innerHTML = '<p class="text-center text-xs text-slate-400 py-4">କୌଣସି ପୁରୁଣା ସାମଗ୍ରୀ ମିଳିଲା ନାହିଁ।</p>';
+        return;
+      }
+
+      box.innerHTML = filtered.map((p) => {
+        var originalIdx = window.STORE_CATALOG.findIndex(x => String(x.ean) === String(p.ean));
+        return `
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+            <div class="flex items-center gap-2 flex-1 pr-2">
+              <img src="${p.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80'}" class="w-9 h-9 object-contain rounded bg-white p-0.5 border border-slate-100 shrink-0">
+              <div>
+                <h5 class="font-bold text-slate-800 line-clamp-1">${p.product_name}</h5>
+                <span class="text-[11px] text-slate-500 block leading-tight">Rs.${p.selling_price} | MRP: ${p.mrp} | Stock: ${p.stock_qty || 10} | ${p.category}</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button onclick="editAdminProduct(${originalIdx})" class="px-2 py-1 bg-amber-500 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 shadow-xs hover:bg-amber-600">
+                <i class="ph-bold ph-pencil-simple"></i> Edit
+              </button>
+              <button onclick="deleteAdminProduct(${originalIdx})" class="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg">
+                <i class="ph-bold ph-trash text-xs"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function deleteAdminProduct(idx) {
+      var p = window.STORE_CATALOG[idx];
+      if (confirm(`ଆପଣ "${p.product_name}" କୁ ଡିଲିଟ୍ କରିବାକୁ ଚାହାନ୍ତି କି?`)) {
+        window.STORE_CATALOG.splice(idx, 1);
+        localStorage.setItem('munna_store_catalog', JSON.stringify(window.STORE_CATALOG));
+        renderAdminList();
+        render();
+      }
+    }
+
+    async function handleAdminFormSubmit(e) {
+      e.preventDefault();
+      var submitBtn = document.getElementById('adminFormSubmitBtn');
+      submitBtn.disabled = true;
+      submitBtn.innerText = "Saving to Google Sheet...";
+
+      var isEdit = document.getElementById('editEan').value !== "";
+      var ean = isEdit ? document.getElementById('editEan').value : ("ean-" + Date.now());
+      var rowIndex = document.getElementById('editRowIndex').value;
+
+      var nm = document.getElementById('newProdName').value.trim();
+      var mrp = document.getElementById('newProdMRP').value.trim();
+      var sp = document.getElementById('newProdSP').value.trim();
+      var st = document.getElementById('newProdStock').value.trim();
+      var cat = document.getElementById('newProdCat').value.trim() || 'General';
+      var img = document.getElementById('newProdImg').value.trim();
+
+      var prodObj = {
+        rowIndex: rowIndex ? Number(rowIndex) : undefined,
+        ean: ean,
+        product_name: nm,
+        mrp: mrp,
+        selling_price: sp,
+        stock_qty: st,
+        image_url: img || "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80",
+        category: cat
+      };
+
+      if (isEdit) {
+        var existingIdx = window.STORE_CATALOG.findIndex(x => String(x.ean) === String(ean));
+        if (existingIdx !== -1) window.STORE_CATALOG[existingIdx] = prodObj;
+      } else {
+        window.STORE_CATALOG.unshift(prodObj);
+      }
+
+      localStorage.setItem('munna_store_catalog', JSON.stringify(window.STORE_CATALOG));
+
+      var hook = localStorage.getItem('munna_sheet_webhook');
+      if (hook) {
+        try {
+          await fetch(hook, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: isEdit ? "EDIT_PRODUCT" : "ADD_PRODUCT",
+              rowIndex: rowIndex ? Number(rowIndex) : undefined,
+              ean: ean,
+              name: nm,
+              mrp: mrp,
+              sellingPrice: sp,
+              stock: st,
+              category: cat,
+              image: prodObj.image_url
+            })
+          });
+        } catch(err){}
+      }
+
+      submitBtn.disabled = false;
+      alert(isEdit ? "ପ୍ରଡକ୍ଟ ସଫଳତାର ସହ Update ହେଲା!" : "ନୂଆ ପ୍ରଡକ୍ଟ ସଫଳତାର ସହ ଯୋଡ଼ାଗଲା!");
+      resetAdminForm();
+      renderAdminList();
+      render();
+    }
+
+    async function syncFromGoogleSheet() {
+      var hook = localStorage.getItem('munna_sheet_webhook');
+      if (!hook) return;
+
+      var countBadge = document.getElementById("productCountBadge");
+      if (countBadge) countBadge.innerText = "ସିଙ୍କ୍ ହେଉଛି...";
+
+      try {
+        var res = await fetch(hook);
+        var data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          window.STORE_CATALOG = data;
+          localStorage.setItem('munna_store_catalog', JSON.stringify(data));
+          render();
+          if (typeof renderAdminList === 'function') renderAdminList();
+        }
+      } catch (err) {
+        if (countBadge) countBadge.innerText = `${window.STORE_CATALOG.length} ଟି ସାମଗ୍ରୀ`;
+      }
+    }
+
+    async function manualSync() {
+      var btn = document.getElementById('syncNowBtn');
+      btn.innerText = "...";
+      await syncFromGoogleSheet();
+      btn.innerHTML = '<i class="ph-bold ph-arrows-clockwise"></i> <span>Sync</span>';
+      alert("Google Sheet ରୁ ସମସ୍ତ ସାମଗ୍ରୀ ସଫଳତାର ସହ ସିଙ୍କ୍ ହେଲା!");
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // The bot passes the Sheet webhook as ?sheet=<url> so the catalog
+      // auto-syncs from Google Sheets with no in-app setup required.
+      try {
+        var sp = new URLSearchParams(window.location.search);
+        var sheetParam = sp.get('sheet');
+        if (sheetParam) {
+          localStorage.setItem('munna_sheet_webhook', sheetParam);
+        }
+      } catch (e) {}
+      render();
+      syncFromGoogleSheet();
+    });
+  </script>
+</body>
+</html>
