@@ -1821,12 +1821,17 @@
 
     // --- SHARED-DATABASE HELPERS (Google Sheet via Apps Script webhook) ---
     function sheetHookUrl(suffix) {
-      var hook = localStorage.getItem('munna_sheet_webhook');
+      // localStorage first, DEFAULT_SHEET_WEBHOOK fallback — customer phones
+      // that never opened Admin still reach the shared Sheet (banners/order
+      // sync must work on EVERY device, not just the admin's).
+      var hook = (localStorage.getItem('munna_sheet_webhook') || '').trim()
+        || (typeof DEFAULT_SHEET_WEBHOOK !== 'undefined' ? DEFAULT_SHEET_WEBHOOK : '');
       if (!hook) return '';
       return hook + (hook.indexOf('?') >= 0 ? '&' : '?') + (suffix || '');
     }
     function postToSheet(payload) {
-      var hook = localStorage.getItem('munna_sheet_webhook');
+      var hook = (localStorage.getItem('munna_sheet_webhook') || '').trim()
+        || (typeof DEFAULT_SHEET_WEBHOOK !== 'undefined' ? DEFAULT_SHEET_WEBHOOK : '');
       if (!hook) return;
       try {
         fetch(hook, {
@@ -1910,7 +1915,10 @@
       } catch (e) { return false; }
     }
     async function syncBannersFromSheet() {
-      var url = sheetHookUrl('action=GET_CONFIG');
+      // Cache-buster: Apps Script + Netlify edge-cache can serve a stale
+      // config for minutes. The timestamp makes EVERY poll a fresh read so a
+      // newly-set admin banner appears on customer phones within ~2 minutes.
+      var url = sheetHookUrl('action=GET_CONFIG&_=' + Date.now());
       if (!url) return false;
       try {
         var res = await fetch(url);
