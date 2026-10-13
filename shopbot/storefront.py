@@ -1448,7 +1448,7 @@ async def handle_webapp_data(update, context) -> None:
     except (TypeError, ValueError):
         parsed = None
     action = ""
-    name = phone = address = payment = order_id = ""
+    name = phone = address = payment = order_id = location = ""
     if isinstance(parsed, dict):
         action = str(parsed.get("action") or "").strip().upper()
         name = str(parsed.get("customer") or parsed.get("name") or "").strip()
@@ -1456,11 +1456,14 @@ async def handle_webapp_data(update, context) -> None:
         address = str(parsed.get("address") or "").strip()
         payment = str(parsed.get("payment") or "COD").strip() or "COD"
         order_id = str(parsed.get("orderId") or "").strip()
+        location = str(parsed.get("location") or "").strip()
 
     # Address book sync from the Mini App (no order placed).
     if action == "SAVE_ADDRESS":
         try:
-            await asyncio.to_thread(db.save_address, user.id, name, address, phone)
+            await asyncio.to_thread(
+                db.save_address, user.id, name, address, phone, location
+            )
             await message.reply_text("Address saved. (\u091c\u093e \u0928\u093e\u0939\u093f\u0902)")
         except Exception:  # noqa: BLE001
             logger.warning("Could not save address for %s", user.id, exc_info=True)
@@ -1484,6 +1487,8 @@ async def handle_webapp_data(update, context) -> None:
             "miniapp",
             user.id,
             order_id or None,
+            location=location,
+            payment=payment,
         )
     except ValueError as exc:
         await message.reply_text(f"Order could not be placed: {exc}")
@@ -1498,7 +1503,9 @@ async def handle_webapp_data(update, context) -> None:
     # Remember the address so the next checkout is prefilled.
     if name and phone and address:
         try:
-            await asyncio.to_thread(db.save_address, user.id, name, address, phone)
+            await asyncio.to_thread(
+                db.save_address, user.id, name, address, phone, location
+            )
         except Exception:  # noqa: BLE001
             logger.warning("Could not save address for %s", user.id, exc_info=True)
 
@@ -1508,21 +1515,42 @@ async def handle_webapp_data(update, context) -> None:
 
     oid = result.get("order_id", "")
     total = result.get("total", 0)
-    await message.reply_text(
-        f"Your order is placed!\n\n"
-        f"Order ID: {oid}\n"
-        f"Total: Rs.{total}\n"
-        f"Payment: {payment}\n\n"
-        f"Track it under My Orders. Thank you!"
+
+    # Live customer status message - the SAME message the Admin Panel edits
+    # in place as the seller advances the order (shared with all channels).
+    summary = dict(result)
+    summary["address"] = address
+    summary["phone"] = phone
+    summary["customer_name"] = name
+    sent = await orders.send_order_status(
+        context, user.id, summary, result.get("status") or "pending"
     )
-    # Best-effort admin notification.
-    try:
-        for admin_id in orders.admin_ids():
-            await context.bot.send_message(
-                admin_id,
-                f"New Mini App order {oid}\nCustomer: {name}\nPhone: {phone}\n"
-                f"Address: {address}\nPayment: {payment}\nTotal: Rs.{total}",
+    if sent is None:
+        # Fallback: plain confirmation when the status message could not send.
+        try:
+            await message.reply_text(
+                f"Your order is placed!\n\n"
+                f"Order ID: {oid}\n"
+                f"Total: Rs.{total}\n"
+                f"Payment: {payment}\n\n"
+                f"Track it under My Orders. Thank you!"
             )
+        except Exception:  # noqa: BLE001
+            logger.warning("Could not confirm Mini App order to %s", user.id)
+
+    # Best-effort admin notification (same alert format as every channel).
+    try:
+        alert = orders.admin_alert_text(
+            oid,
+            name,
+            phone,
+            address,
+            result.get("lines") or [],
+            total,
+            "miniapp",
+            user.id,
+        )
+        await orders.notify_admins(context, alert)
     except Exception:  # noqa: BLE001
         pass
 

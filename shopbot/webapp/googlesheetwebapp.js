@@ -1,5 +1,49 @@
 // =========================================================================
-// ୧. doGet: Sheet ଡାଟା ପଢ଼ିବା ଏବଂ JioMart Pincode Search
+// MUNNA MOBILE & Grocery - Google Apps Script Web App
+// Shared database for the Telegram bot (db.py) AND the webapp (index.html).
+//
+// ONE unified Orders format (13 columns, must match db.ORDERS_HEADERS):
+//   Timestamp | Order ID | Customer Name | Phone | Address | Items | Total |
+//   Channel | Telegram User ID | Status | Status Msg ID | Location | Payment
+//
+// Items text format (same as the bot): "Oil x2 @ Rs.340; Salt x1 @ Rs.25"
+// Channel: "webapp" (browser), "chat"/"miniapp"/"ai" (Telegram bot)
+// Status: pending | accepted | packing | out_for_delivery | delivered | cancelled
+//
+// doGet  actions: SEARCH_JIOMART | GET_ORDERS | GET_ADDRESSES | (catalog)
+// doPost actions: create_order | update_order_status | update_order_bill |
+//                 save_address | EDIT_PRODUCT | ADD_PRODUCT | (legacy)
+// =========================================================================
+
+var ORDER_HEADERS = [
+  "Timestamp", "Order ID", "Customer Name", "Phone", "Address", "Items",
+  "Total", "Channel", "Telegram User ID", "Status", "Status Msg ID",
+  "Location", "Payment"
+];
+var ADDR_HEADERS = [
+  "Telegram User ID", "Name", "Address", "Phone", "Location", "Updated At"
+];
+var ORDER_STATUSES = [
+  "pending", "accepted", "packing", "out_for_delivery", "delivered", "cancelled"
+];
+
+function jsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function nowStamp_() {
+  try {
+    return Utilities.formatDate(
+      new Date(), Session.getScriptTimeZone() || "Asia/Kolkata", "yyyy-MM-dd HH:mm:ss"
+    );
+  } catch (e) {
+    return new Date().toISOString().replace("T", " ").substring(0, 19);
+  }
+}
+
+// =========================================================================
+// କ. doGet: Sheet ଡାଟା ପଢ଼ିବା, Orders/Addresses sync ଏବଂ JioMart Pincode Search
 // =========================================================================
 function doGet(e) {
   var params = e ? e.parameter : {};
@@ -9,15 +53,28 @@ function doGet(e) {
     var q = params.query || "";
     var pin = params.pincode || "752106";
     var results = fetchJioMartByPin(q, pin);
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", items: results }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonResponse({ status: "success", items: results });
   }
 
-  // ବିକଳ୍ପ B: Sheet1 ରୁ କାଟାଲଗ୍ ପଢ଼ିବା
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // ବିକଳ୍ପ B: Orders tab -> webapp ରେ Telegram ଓ browser ଦୁଇ ପାଖର order ଦେଖାଇବ
+  if (params && params.action === "GET_ORDERS") {
+    return jsonResponse({ status: "success", orders: readAllOrders_(ss) });
+  }
+
+  // ବିକଳ୍ପ C: Addresses tab -> webapp ରେ bot ର ସେଭ୍ କରାଯାଇଥିବା ଠିକଣା ଆସିବ
+  if (params && params.action === "GET_ADDRESSES") {
+    return jsonResponse({
+      status: "success",
+      addresses: readAddresses_(ss, params.user_id || "")
+    });
+  }
+
+  // ବିକଳ୍ପ D: Sheet1 ରୁ କାଟାଲଗ୍ ପଢ଼ିବା
   var sheet = ss.getSheetByName("Sheet1");
   if (!sheet) {
-    return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
+    return jsonResponse([]);
   }
   var rows = sheet.getDataRange().getValues();
   var products = [];
@@ -36,11 +93,11 @@ function doGet(e) {
       });
     }
   }
-  return ContentService.createTextOutput(JSON.stringify(products)).setMimeType(ContentService.MimeType.JSON);
+  return jsonResponse(products);
 }
 
 // =========================================================================
-// ୨. doPost: ପ୍ରଡକ୍ଟ ADD / EDIT ଏବଂ Orders ସମ୍ଭାଳିବା
+// ଖ. doPost: Orders / Addresses / Products ସମ୍ଭାଳିବା (unified format)
 // =========================================================================
 function doPost(e) {
   try {
@@ -48,7 +105,7 @@ function doPost(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var prodSheet = ss.getSheetByName("Sheet1");
 
-    // ବିକଳ୍ପ A: ପ୍ରଡକ୍ଟ EDIT / UPDATE
+    // ବିକଳ୍ପ 1: ପ୍ରଡକ୍ଟ EDIT / UPDATE
     if (data.action === "EDIT_PRODUCT") {
       var rows = prodSheet.getDataRange().getValues();
       var targetRow = -1;
@@ -66,11 +123,11 @@ function doPost(e) {
         prodSheet.getRange(targetRow, 5).setValue(data.ean || "");
         prodSheet.getRange(targetRow, 6).setValue(data.image || "");
         prodSheet.getRange(targetRow, 7).setValue(data.category || "General");
-        return ContentService.createTextOutput(JSON.stringify({ status: "success", type: "product_updated" })).setMimeType(ContentService.MimeType.JSON);
+        return jsonResponse({ status: "success", type: "product_updated" });
       }
     }
 
-    // ବିକଳ୍ପ B: ପ୍ରଡକ୍ଟ ADD
+    // ବିକଳ୍ପ 2: ପ୍ରଡକ୍ଟ ADD
     if (data.action === "ADD_PRODUCT" || (data.mrp !== undefined && data.sellingPrice !== undefined)) {
       if (!prodSheet) prodSheet = ss.insertSheet("Sheet1");
       prodSheet.appendRow([
@@ -82,35 +139,291 @@ function doPost(e) {
         data.image || "",
         data.category || "General"
       ]);
-      return ContentService.createTextOutput(JSON.stringify({ status: "success", type: "product_added" })).setMimeType(ContentService.MimeType.JSON);
+      return jsonResponse({ status: "success", type: "product_added" });
     }
 
-    // ବିକଳ୍ପ C: Telegram Orders ରେକର୍ଡ
-    var orderSheet = ss.getSheetByName("Orders");
-    if (!orderSheet) {
-      orderSheet = ss.insertSheet("Orders");
-      orderSheet.appendRow(["Timestamp", "Order ID", "Customer Name", "Phone", "Address", "Items", "Total", "Channel", "Telegram User ID"]);
+    // ବିକଳ୍ପ 3: ନୂଆ order (webapp browser checkout) - ଠିକ୍ ସେହି same 13-column row
+    // ଯାହା bot ର db.place_order ଲେଖେ, ତାହା Apps Script ମଧ୍ୟ ଲେଖିବ।
+    if (data.action === "create_order") {
+      return jsonResponse(writeNewOrder_(ss, data));
     }
-    orderSheet.appendRow([
-      data.timestamp || new Date().toISOString().replace('T', ' ').substring(0, 19),
-      data.order_id || ("MUN-" + Date.now()),
-      data.customer_name || data.customer || "",
-      data.phone || "",
-      data.address || "",
-      data.items ? (typeof data.items === 'object' ? JSON.stringify(data.items) : data.items) : "",
-      data.total || 0,
-      data.channel || "chat",
-      data.telegram_user_id || ""
-    ]);
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", type: "order_recorded" })).setMimeType(ContentService.MimeType.JSON);
 
+    // ବିକଳ୍ପ 4: webapp admin panel ରୁ status ବଦଳ (bot ଏହା ଦେଖି customer msg edit କରିବ)
+    if (data.action === "update_order_status") {
+      var st = String(data.status || "").trim();
+      if (ORDER_STATUSES.indexOf(st) < 0) {
+        return jsonResponse({ status: "error", error: "Unknown status: " + st });
+      }
+      var shS = ensureSheet_(ss, "Orders", ORDER_HEADERS);
+      var rowS = findOrderRow_(shS, data.order_id);
+      if (rowS < 1) {
+        return jsonResponse({ status: "error", error: "Order not found" });
+      }
+      shS.getRange(rowS, 10).setValue(st);
+      return jsonResponse({ status: "success", type: "status_updated", order_id: String(data.order_id), status: st });
+    }
+
+    // ବିକଳ୍ପ 5: webapp admin panel ରୁ bill edit (items + total)
+    if (data.action === "update_order_bill") {
+      var shB = ensureSheet_(ss, "Orders", ORDER_HEADERS);
+      var rowB = findOrderRow_(shB, data.order_id);
+      if (rowB < 1) {
+        return jsonResponse({ status: "error", error: "Order not found" });
+      }
+      shB.getRange(rowB, 6).setValue(String(data.items || ""));
+      shB.getRange(rowB, 7).setValue(Number(data.total || 0) || 0);
+      return jsonResponse({ status: "success", type: "bill_updated", order_id: String(data.order_id) });
+    }
+
+    // ବିକଳ୍ପ 6: address book sync (webapp -> same Addresses tab as the bot)
+    if (data.action === "save_address") {
+      var uid = String(data.user_id || data.telegram_user_id || "").trim();
+      if (!uid) {
+        return jsonResponse({ status: "error", error: "user_id required" });
+      }
+      upsertAddress_(ss, uid, data.name, data.address, data.phone, data.location);
+      return jsonResponse({ status: "success", type: "address_saved", user_id: uid });
+    }
+
+    // ବିକଳ୍ପ 7 (legacy): flat keys ଥିବା ପୁରୁଣା payload - unified row ରେ ବଦଳାଇ ଲେଖାଯିବ
+    var looksLikeOrder = (data.order_id || data.orderId || data.id) &&
+      (data.items !== undefined || data.customer !== undefined || data.name !== undefined);
+    if (looksLikeOrder) {
+      return jsonResponse(writeNewOrder_(ss, data));
+    }
+
+    return jsonResponse({ status: "error", error: "Nothing matched" });
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+    return jsonResponse({ status: "error", error: err.toString() });
   }
 }
 
 // =========================================================================
-// ୩. JioMart API Fetcher (jm1.8.0_3.py Headers ଓ Parsing Pattern)
+// Shared order/address helpers (unified format used by bot + webapp)
+// =========================================================================
+
+// Get or create a tab and make sure its header row matches `headers`
+// (extends missing trailing columns; never shrinks data).
+function ensureSheet_(ss, name, headers) {
+  var sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+  }
+  if (sh.getMaxColumns() < headers.length) {
+    sh.insertColumnsAfter(sh.getMaxColumns(), headers.length - sh.getMaxColumns());
+  }
+  var needHeader = sh.getLastRow() < 1;
+  if (!needHeader) {
+    var cur = sh.getRange(1, 1, 1, headers.length).getValues()[0];
+    for (var i = 0; i < headers.length; i++) {
+      var val = cur[i] === undefined ? "" : String(cur[i]).trim();
+      if (val !== headers[i]) { needHeader = true; break; }
+    }
+  }
+  if (needHeader) {
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+  return sh;
+}
+
+// One sheet row -> unified order object (pads older 9/12 column rows).
+function rowToOrder_(row) {
+  var r = (row || []).slice();
+  while (r.length < ORDER_HEADERS.length) r.push("");
+  return {
+    timestamp: String(r[0] || ""),
+    order_id: String(r[1] || ""),
+    customer_name: String(r[2] || ""),
+    phone: String(r[3] || ""),
+    address: String(r[4] || ""),
+    items: String(r[5] || ""),
+    total: Number(r[6] || 0) || 0,
+    channel: String(r[7] || "chat") || "chat",
+    telegram_user_id: String(r[8] || ""),
+    status: String(r[9] || "").trim() || "pending",
+    status_msg_id: String(r[10] || ""),
+    location: String(r[11] || ""),
+    payment: String(r[12] || "").trim() || "COD"
+  };
+}
+
+// Find an order row by Order ID (column B); returns 1-based row or -1.
+function findOrderRow_(sh, orderId) {
+  var target = String(orderId || "").trim();
+  if (!target || sh.getLastRow() < 2) return -1;
+  var ids = sh.getRange(2, 2, sh.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === target) return i + 2;
+  }
+  return -1;
+}
+
+// Normalise ANY incoming order payload (new or legacy keys) to unified form.
+function normalizeOrder_(data) {
+  var o = (data && data.order && typeof data.order === "object") ? data.order : (data || {});
+  var orderId = String(o.order_id || o.orderId || o.id || "").trim();
+  if (!orderId) {
+    orderId = "MUN-" + Date.now().toString(12).toUpperCase();
+  }
+  var ts = String(o.timestamp || o.date || "");
+  if (ts.indexOf("T") >= 0) ts = ts.replace("T", " ").substring(0, 19);
+  if (!/^\d{4}-\d{2}-\d{2}/.test(ts)) ts = nowStamp_();
+
+  // Items: unified text, or a structured array (legacy webapp / bot lines).
+  var itemsText = "";
+  if (typeof o.items === "string") itemsText = o.items;
+  else if (typeof o.items_text === "string") itemsText = o.items_text;
+  var lines = Array.isArray(o.lines) ? o.lines : (Array.isArray(o.items) ? o.items : []);
+  if (!itemsText && lines.length) {
+    if (lines[0] && lines[0].name !== undefined) {
+      itemsText = lines.map(function (l) {
+        return l.name + " x" + (Number(l.qty) || 1) + " @ Rs." + (Number(l.price) || 0);
+      }).join("; ");
+    } else {
+      try { itemsText = JSON.stringify(lines); } catch (e) { itemsText = ""; }
+    }
+  }
+
+  // Status: unified status, else derive from the legacy 1..5 stage.
+  var status = String(o.status || "").trim();
+  if (ORDER_STATUSES.indexOf(status) < 0) {
+    var stage = Number(o.stage || 0);
+    status = (stage >= 1 && stage <= 5) ? ORDER_STATUSES[stage - 1] : "pending";
+  }
+
+  var location = typeof o.location === "string" ? o.location : "";
+  if (!location && o.lat !== undefined && o.lat !== "" && o.lng !== undefined && o.lng !== "") {
+    location = o.lat + "," + o.lng;
+  }
+
+  return {
+    timestamp: ts,
+    order_id: orderId,
+    customer_name: String(o.customer_name || o.name || o.customer || ""),
+    phone: String(o.phone || ""),
+    address: String(o.address || ""),
+    items: itemsText,
+    total: Number(String(o.total || 0).replace(/,/g, "")) || 0,
+    channel: String(o.channel || "webapp").trim() || "webapp",
+    telegram_user_id: String(o.telegram_user_id || ""),
+    status: status,
+    status_msg_id: String(o.status_msg_id || ""),
+    location: location,
+    payment: String(o.payment || "COD").trim() || "COD",
+    lines: lines
+  };
+}
+
+function orderRow_(o) {
+  return [
+    o.timestamp, o.order_id, o.customer_name, o.phone, o.address, o.items,
+    o.total, o.channel, o.telegram_user_id, o.status, o.status_msg_id,
+    o.location, o.payment
+  ];
+}
+
+// Write one unified order row (dedupe by order id + deduct stock once).
+function writeNewOrder_(ss, payload) {
+  var o = normalizeOrder_(payload);
+  var ordersSh = ensureSheet_(ss, "Orders", ORDER_HEADERS);
+  var existing = findOrderRow_(ordersSh, o.order_id);
+  if (existing > 0) {
+    // Same order sent twice -> update in place, never duplicate the row.
+    ordersSh.getRange(existing, 1, 1, ORDER_HEADERS.length).setValues([orderRow_(o)]);
+    return { status: "success", type: "order_updated", order_id: o.order_id };
+  }
+  var eanLines = (o.lines || []).filter(function (l) { return l && l.ean; });
+  if (eanLines.length) deductStock_(ss.getSheetByName("Sheet1"), eanLines);
+  ordersSh.appendRow(orderRow_(o));
+  if (o.telegram_user_id && o.customer_name && o.address) {
+    upsertAddress_(ss, o.telegram_user_id, o.customer_name, o.address, o.phone, o.location);
+  }
+  return { status: "success", type: "order_recorded", order_id: o.order_id };
+}
+
+// Deduct stock from Sheet1 by EAN (same rule as db.deduct_stock_by_ean).
+function deductStock_(prodSheet, lines) {
+  if (!prodSheet || !lines || !lines.length) return;
+  var lastRow = prodSheet.getLastRow();
+  if (lastRow < 2) return;
+  var cols = Math.min(7, prodSheet.getMaxColumns());
+  var rows = prodSheet.getRange(2, 1, lastRow - 1, cols).getValues();
+  var index = {};
+  for (var i = 0; i < rows.length; i++) {
+    var ean = String(rows[i][4] || "").trim();
+    if (ean && index[ean] === undefined) index[ean] = i;
+  }
+  for (var j = 0; j < lines.length; j++) {
+    var ean2 = String(lines[j].ean || "").trim();
+    var qty = Number(lines[j].qty || 0);
+    var at = index[ean2];
+    if (at === undefined || !qty) continue;
+    var cur = Number(rows[at][3] || 0);
+    prodSheet.getRange(at + 2, 4).setValue(Math.max(0, cur - qty));
+  }
+}
+
+// One DEFAULT address per user (same Addresses tab the bot writes).
+function upsertAddress_(ss, uid, name, address, phone, location) {
+  var sh = ensureSheet_(ss, "Addresses", ADDR_HEADERS);
+  var updated = nowStamp_();
+  var lastRow = sh.getLastRow();
+  if (lastRow >= 2) {
+    var ids = sh.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]).trim() === String(uid)) {
+        sh.getRange(i + 2, 1, 1, ADDR_HEADERS.length).setValues(
+          [[String(uid), name || "", address || "", phone || "", location || "", updated]]
+        );
+        return true;
+      }
+    }
+  }
+  sh.appendRow([String(uid), name || "", address || "", phone || "", location || "", updated]);
+  return true;
+}
+
+// All orders, newest first (webapp shows Telegram + browser orders together).
+function readAllOrders_(ss) {
+  var sh = ss.getSheetByName("Orders");
+  var out = [];
+  if (!sh || sh.getLastRow() < 2) return out;
+  var rows = sh.getRange(
+    2, 1, sh.getLastRow() - 1, Math.min(ORDER_HEADERS.length, sh.getMaxColumns())
+  ).getValues();
+  for (var i = rows.length - 1; i >= 0; i--) {
+    if (!String(rows[i][1] || "").trim()) continue;
+    out.push(rowToOrder_(rows[i]));
+  }
+  return out;
+}
+
+// Saved addresses (optionally only one user's).
+function readAddresses_(ss, userId) {
+  var sh = ss.getSheetByName("Addresses");
+  var out = [];
+  if (!sh || sh.getLastRow() < 2) return out;
+  var rows = sh.getRange(
+    2, 1, sh.getLastRow() - 1, Math.min(ADDR_HEADERS.length, sh.getMaxColumns())
+  ).getValues();
+  var want = String(userId || "").trim();
+  for (var i = 0; i < rows.length; i++) {
+    var uid = String(rows[i][0] || "").trim();
+    if (!uid || (want && uid !== want)) continue;
+    out.push({
+      user_id: uid,
+      name: String(rows[i][1] || ""),
+      address: String(rows[i][2] || ""),
+      phone: String(rows[i][3] || ""),
+      location: String(rows[i][4] || ""),
+      updated_at: String(rows[i][5] || "")
+    });
+  }
+  return out;
+}
+
+// =========================================================================
+// ଗ. JioMart API Fetcher (jm1.8.0_3.py Headers ଓ Parsing Pattern)
 // =========================================================================
 function fetchJioMartByPin(query, pin) {
   var results = [];
@@ -201,3 +514,4 @@ function fetchJioMartByPin(query, pin) {
 
   return results;
 }
+

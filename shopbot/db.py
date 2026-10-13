@@ -685,11 +685,13 @@ ORDERS_HEADERS: List[str] = [
     "Status",
     "Status Msg ID",
     "Location",
+    "Payment",
 ]
 # column indexes (0-based) for the status/workflow fields
 COL_ORDER_STATUS = 9
 COL_ORDER_STATUS_MSG = 10
 COL_ORDER_LOCATION = 11
+COL_ORDER_PAYMENT = 12
 
 # order lifecycle (seller advances these from the Admin Panel)
 ORDER_STATUSES: List[str] = [
@@ -780,6 +782,7 @@ def place_order(
     order_id=None,
     timestamp=None,
     location="",
+    payment="COD",
 ):
     """Validate, deduct stock and log an order - the ONE checkout path.
 
@@ -866,6 +869,7 @@ def place_order(
         "pending",  # Status - the seller advances this from the Admin Panel
         "",         # Status Msg ID - filled once the customer status msg is sent
         str(location or "").strip(),
+        str(payment or "COD").strip() or "COD",
     ]
     worksheet = get_orders_worksheet()
     _call("Logging order", worksheet.append_row, row)
@@ -912,6 +916,7 @@ def get_recent_orders(limit=20):
                 "status": str(padded[COL_ORDER_STATUS]).strip() or "pending",
                 "status_msg_id": str(padded[COL_ORDER_STATUS_MSG]).strip(),
                 "location": str(padded[COL_ORDER_LOCATION]).strip(),
+                "payment": str(padded[COL_ORDER_PAYMENT]).strip() or "COD",
             }
         )
     orders.reverse()  # newest first (append-only log)
@@ -1099,6 +1104,7 @@ __all__ = [
     "COL_IMAGE",
     "COL_CATEGORY",
     "COL_ORDER_LOCATION",
+    "COL_ORDER_PAYMENT",
     "COL_ORDER_STATUS",
     "COL_ORDER_STATUS_MSG",
     "DatabaseError",

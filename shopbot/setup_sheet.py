@@ -62,6 +62,10 @@ ORDERS_HEADERS: List[str] = [
     "Total",
     "Channel",
     "Telegram User ID",
+    "Status",
+    "Status Msg ID",
+    "Location",
+    "Payment",
 ]
 
 # Drive scope is required to CREATE spreadsheets and SHARE them.

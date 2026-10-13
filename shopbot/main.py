@@ -189,6 +189,16 @@ def main() -> None:
         except Exception:  # noqa: BLE001 - countdown must never break startup
             logger.error("Could not start auto-restart watcher", exc_info=True)
 
+        # Webapp <-> bot order sync (Google Sheet is the shared database:
+        # web orders -> Telegram admin alert + customer live status message,
+        # status changes -> live message edits). See web_sync.py.
+        try:
+            import web_sync
+
+            asyncio.create_task(web_sync.sync_loop(a))
+        except Exception:  # noqa: BLE001 - sync must never break startup
+            logger.error("Could not start web order sync loop", exc_info=True)
+
     app = Application.builder().token(token).post_init(_post_init).build()
 
     # Order matters: admin flow first, then the storefront (group -1, so its

@@ -328,6 +328,7 @@ async def checkout(
     channel: str = "chat",
     telegram_user_id: Any = "",
     location: str = "",
+    payment: str = "COD",
 ) -> Dict[str, Any]:
     """Place an order from ANY channel and alert the admin.
 
@@ -344,6 +345,7 @@ async def checkout(
         channel,
         str(telegram_user_id or ""),
         location=location,
+        payment=payment,
     )
     summary["address"] = address
     summary["phone"] = phone

@@ -37,3 +37,7 @@ WEBAPP2.html
 
 # Test run outputs
 tests/*.txt
+
+# Web sync state (webapp <-> bot order sync - machine local)
+.web_sync_state.json
+.web_sync_state.json.tmp

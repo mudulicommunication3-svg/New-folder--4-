@@ -500,6 +500,12 @@
               <button onclick="saveWebhook()" class="px-2.5 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg shrink-0">Save</button>
               <button onclick="manualSync()" id="syncNowBtn" class="px-2.5 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg shrink-0">Sync</button>
             </div>
+            <label class="text-[11px] font-bold text-slate-700 block pt-1">JioMart Search Proxy (optional — jiomart_search_proxy.py)</label>
+            <div class="flex gap-1.5">
+              <input type="text" id="jiomartProxyInput" placeholder="http://localhost:8085" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none">
+              <button onclick="saveJioMartProxy()" class="px-2.5 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg shrink-0">Save</button>
+            </div>
+            <p class="text-[10px] text-slate-400 leading-snug">🔍 JioMart search କ୍ରମ: Apps Script Webhook → Local Proxy → AllOrigins। Webhook ରେ SEARCH_JIOMART ପୂର୍ବରୁ ଅଛି ତେଣୁ webhook ସେଟ୍ ଥିଲେ proxy ଦରକାର ନାହିଁ।</p>
           </div>
         </div>
       </div>
@@ -512,6 +518,18 @@
     const STORE_LAT = 20.132475;
     const STORE_LNG = 86.059808;
     const MAX_RADIUS_KM = 3.0;
+
+    // ====================================================================
+    // Google Apps Script Webhook - LIVE catalog for every new visitor.
+    // Without it, a fresh device/browser only shows the built-in sample
+    // products below. Resolution order (later wins only when earlier absent):
+    //   1. ?sheet=<url>            deep-link override (bot Mini App uses this)
+    //   2. localStorage webhook    saved via Admin -> Sheets
+    //   3. DEFAULT_SHEET_WEBHOOK   this constant (new devices auto-sync)
+    // Get the real URL from the bot server's .env: SHEET_WEBHOOK_URL=...
+    // (Apps Script editor -> Deploy -> Web app -> URL ending in /exec)
+    // ====================================================================
+    const DEFAULT_SHEET_WEBHOOK = "https://script.google.com/macros/s/AKfycbw9bsU9AR5CPk-PzsLqjzzJ_17J8B6p34TvNAR0dPnTUMVPW7ja3ZfYEv1oTjUHKqKt/exec";
 
     let customerLat = STORE_LAT;
     let customerLng = STORE_LNG;
@@ -839,66 +857,78 @@
     function backToAddress() { setStep('Address'); }
 
     function placeMiniOrder() {
-      var items = Object.keys(cart).map(ean => ({ ean: ean, qty: cart[ean] }));
       var name = document.getElementById('orderCustName').value.trim() || 'Customer';
       var phone = document.getElementById('orderCustPhone').value.trim();
       var address = document.getElementById('orderCustAddress').value.trim();
       var payEl = document.querySelector('input[name="payMethod"]:checked');
       var payment = payEl ? payEl.value : 'COD';
 
-      var total = 0, lines = [];
-      items.forEach(it => {
-        var p = window.STORE_CATALOG.find(x => String(x.ean) === String(it.ean));
-        if (p) {
-          var sub = (parseFloat(p.selling_price)||0) * it.qty;
-          total += sub;
-          lines.push({ name: p.product_name, qty: it.qty, price: p.selling_price });
-        }
+      // Unified line items: EAN+qty (for stock) + name/price (for the bill text)
+      var lines = [], total = 0, outOfStock = '';
+      Object.keys(cart).forEach(function (ean) {
+        var p = window.STORE_CATALOG.find(x => String(x.ean) === String(ean));
+        if (!p) return;
+        var qty = cart[ean];
+        var price = parseFloat(p.selling_price) || 0;
+        total += price * qty;
+        lines.push({ ean: String(p.ean), name: p.product_name, qty: qty, price: price });
+        var available = parseInt(p.stock_qty, 10);
+        if (!isNaN(available) && available < qty && !outOfStock) outOfStock = p.product_name;
       });
+      if (!lines.length) { alert("Cart ଖାଲି ଅଛି!"); return; }
+      if (outOfStock) { alert("ସ୍ଟକ୍ ନାହିଁ (Out of stock): " + outOfStock); return; }
 
-      var orderId = 'ORD' + Date.now().toString().slice(-6);
+      var tgUser = getTgUser();
       var orderObj = {
-        id: orderId,
-        date: new Date().toISOString(),
-        name: name,
+        order_id: makeOrderId(),
+        timestamp: sheetTimestamp(new Date()),
+        customer_name: name,
         phone: phone,
         address: address,
-        lat: customerLat,
-        lng: customerLng,
-        payment: payment,
+        items: itemsToText(lines),
         total: total,
-        items: lines,
-        stage: 1, // 1: Placed, 2: Accepted, 3: Packing, 4: Out for Delivery, 5: Delivered
-        status: 'Order Placed'
+        channel: 'webapp',
+        telegram_user_id: (tgUser && tgUser.id) ? String(tgUser.id) : '',
+        status: 'pending',
+        status_msg_id: '',
+        location: (customerLat && customerLng) ? (customerLat + ',' + customerLng) : '',
+        payment: payment,
+        lines: lines
       };
 
-      // Save to local order store
+      // Save locally first so the Orders screen works instantly (and offline).
       var orders = getMyOrders();
       orders.unshift(orderObj);
       setMyOrders(orders);
 
-      // Post to Google Sheet Webhook
-      var hook = localStorage.getItem('munna_sheet_webhook');
-      if (hook) {
-        try {
-          fetch(hook, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: "create_order", order: orderObj })
-          });
-        } catch(e){}
+      // ONE path only - never both, or the order would be recorded twice:
+      //  * Inside Telegram the BOT places it (stock deduction + the SAME
+      //    Sheet row + admin alert + live customer status message).
+      //  * In a normal browser the Apps Script webhook writes the SAME Sheet
+      //    row and the bot's web_sync loop alerts Telegram + tracks status.
+      var sentToBot = sendToBot({
+        action: 'ORDER',
+        orderId: orderObj.order_id,
+        customer: name,
+        name: name,
+        phone: phone,
+        address: address,
+        payment: payment,
+        location: orderObj.location,
+        items: lines.map(function (l) { return { ean: l.ean, qty: l.qty }; }),
+        total: total,
+        order: orderObj
+      });
+      if (!sentToBot) {
+        postToSheet({ action: 'create_order', order: orderObj });
       }
-
-      // Send to Telegram Bot
-      sendToBot({ action: 'ORDER', orderId: orderId, order: orderObj });
 
       cart = {};
       render();
       renderBar();
       updateCartBadge();
       renderCartDrawer();
-      document.getElementById('successOrderId').innerText = orderId;
+      document.getElementById('successOrderId').innerText = orderObj.order_id;
       setStep('Success');
     }
 
@@ -913,8 +943,12 @@
         b.classList.toggle('text-[#1864ab]', on);
         b.classList.toggle('text-slate-500', !on);
       });
-      if (name === 'orders') renderOrders();
-      if (name === 'address') renderAddressList();
+      if (name === 'orders') {
+        renderOrders();
+        // Pull Telegram (bot) orders too - the Sheet is the shared database.
+        syncOrdersFromSheet();
+      }
+      if (name === 'address') { renderAddressList(); syncAddressesFromSheet(); }
       if (name === 'profile') renderProfile();
       if (name === 'home') window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -988,8 +1022,10 @@
         renderAdminOrders();
         renderAdminList();
         renderAdminBanners();
+        syncOrdersFromSheet();
         var hook = localStorage.getItem('munna_sheet_webhook');
         if (hook) document.getElementById('webhookInput').value = hook;
+        document.getElementById('jiomartProxyInput').value = localStorage.getItem('munna_jiomart_proxy') || '';
       } else {
         alert("ଭୁଲ୍ PIN (Default: 1234)!");
       }
@@ -1062,7 +1098,9 @@
         orders[oIdx].items.splice(itIdx, 1);
       }
       orders[oIdx].total = orders[oIdx].items.reduce((acc, curr) => acc + (parseFloat(curr.price||0) * curr.qty), 0);
+      orders[oIdx].items_text = itemsToText(orders[oIdx].items);
       setMyOrders(orders);
+      pushOrderBill(orders[oIdx]);
       renderAdminOrders();
     }
 
@@ -1070,16 +1108,22 @@
       var orders = getMyOrders();
       orders[oIdx].items.splice(itIdx, 1);
       orders[oIdx].total = orders[oIdx].items.reduce((acc, curr) => acc + (parseFloat(curr.price||0) * curr.qty), 0);
+      orders[oIdx].items_text = itemsToText(orders[oIdx].items);
       setMyOrders(orders);
+      pushOrderBill(orders[oIdx]);
       renderAdminOrders();
     }
 
     function setOrderFulfillmentStage(oIdx, stageNum) {
       var orders = getMyOrders();
       orders[oIdx].stage = stageNum;
+      orders[oIdx].status = STAGE_STATUS[stageNum - 1] || 'pending';
       setMyOrders(orders);
+      // Push to the shared Sheet: the bot then edits the customer's live
+      // Telegram status message and its own Admin Panel shows the same stage.
+      pushOrderStatus(orders[oIdx]);
       renderAdminOrders();
-      alert(`Order #${orders[oIdx].id} updated to Stage ${stageNum}!`);
+      alert(`Order #${orders[oIdx].id} -> Stage ${stageNum} (${orders[oIdx].status})`);
     }
 
     // --- BANNER MANAGER ---
@@ -1133,6 +1177,59 @@
       }
     }
 
+    // --- JioMart search backends (same headers/parsing as jiomart_search_proxy.py) ---
+    // 1) Apps Script webhook: UrlFetchApp calls JioMart SERVER-SIDE with the
+    //    full header set, so CORS and JioMart's browser bot-blocking never
+    //    apply. This is the same code path that works when you run
+    //    jiomart_search_proxy.py locally - just hosted in the Sheet.
+    async function searchJioMartViaHook(q, pin) {
+      var url = sheetHookUrl('action=SEARCH_JIOMART&query=' + encodeURIComponent(q) + '&pincode=' + encodeURIComponent(pin));
+      if (!url) return null;
+      try {
+        var res = await fetch(url);
+        var data = await res.json();
+        if (data && data.status === 'success' && Array.isArray(data.items)) {
+          return data.items.filter(function (it) { return it && it.url && it.sellable !== false; });
+        }
+      } catch (e) {}
+      return null;
+    }
+    // 2) Optional local proxy: python jiomart_search_proxy.py (port 8085).
+    async function searchJioMartViaProxy(q, pin) {
+      var base = (localStorage.getItem('munna_jiomart_proxy') || '').trim();
+      if (!base) return null;
+      try {
+        var res = await fetch(base + (base.indexOf('?') >= 0 ? '&' : '?') + 'q=' + encodeURIComponent(q) + '&pincode=' + encodeURIComponent(pin));
+        var data = await res.json();
+        if (data && Array.isArray(data.items)) {
+          return data.items.filter(function (it) { return it && it.url && it.sellable !== false; });
+        }
+      } catch (e) {}
+      return null;
+    }
+    // 3) Last resort: public CORS proxy (frequently blocked/slow - keep as fallback).
+    async function searchJioMartViaAllOrigins(q) {
+      var out = [];
+      try {
+        var targetJioUrl = `https://www.jiomart.com/api/service/application/catalog/v1.0/products?q=${encodeURIComponent(q)}&page_size=12&page_no=1`;
+        var proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetJioUrl)}`;
+        var proxyRes = await fetch(proxyUrl);
+        var proxyJson = await proxyRes.json();
+        if (proxyJson && proxyJson.contents) {
+          var jioData = JSON.parse(proxyJson.contents);
+          var items = jioData.items || (jioData.data && jioData.data.items) || [];
+          items.forEach(item => {
+            var imgUrl = (item.medias && item.medias[0]) ? item.medias[0].url : "";
+            var mrp = item.price ? (item.price.marked ? (item.price.marked.min || item.price.marked) : "") : "";
+            var sp = item.price ? (item.price.effective ? (item.price.effective.min || item.price.effective) : "") : "";
+            var cat = (item.hierarchy && item.hierarchy.l3_category) ? item.hierarchy.l3_category.name : "Grocery";
+            if (imgUrl) out.push({ title: item.name || q, url: imgUrl, mrp: String(mrp), sp: String(sp), cat: cat, source: "JioMart" });
+          });
+        }
+      } catch(e){}
+      return out;
+    }
+
     async function triggerLiveSearch() {
       var q = document.getElementById('newProdName').value.trim();
       var pin = document.getElementById('searchPincode').value.trim() || '752106';
@@ -1147,30 +1244,28 @@
       dropdown.classList.remove('hidden');
       grid.innerHTML = '<div class="col-span-full py-4 text-center text-xs text-blue-600 font-bold"><i class="ph-bold ph-spinner animate-spin"></i> JioMart ଲାଇଭ୍ ଡାଟା ଖୋଜା ଚାଲିଛି...</div>';
 
-      var results = [];
-      try {
-        var targetJioUrl = `https://www.jiomart.com/api/service/application/catalog/v1.0/products?q=${encodeURIComponent(q)}&page_size=12&page_no=1`;
-        var proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetJioUrl)}`;
-        var proxyRes = await fetch(proxyUrl);
-        var proxyJson = await proxyRes.json();
-        if (proxyJson && proxyJson.contents) {
-          var jioData = JSON.parse(proxyJson.contents);
-          var items = jioData.items || (jioData.data && jioData.data.items) || [];
-          items.forEach(item => {
-            var imgUrl = (item.medias && item.medias[0]) ? item.medias[0].url : "";
-            var mrp = item.price ? (item.price.marked ? (item.price.marked.min || item.price.marked) : "") : "";
-            var sp = item.price ? (item.price.effective ? (item.price.effective.min || item.price.effective) : "") : "";
-            var cat = (item.hierarchy && item.hierarchy.l3_category) ? item.hierarchy.l3_category.name : "Grocery";
-            if (imgUrl) results.push({ title: item.name || q, url: imgUrl, mrp: String(mrp), sp: String(sp), cat: cat, source: "JioMart" });
-          });
-        }
-      } catch(e){}
+      // Try every backend in order until one returns products.
+      var results = [], sourceUsed = '';
+      var viaHook = await searchJioMartViaHook(q, pin);
+      if (viaHook && viaHook.length) { results = viaHook; sourceUsed = 'Apps Script'; }
+      if (!results.length) {
+        var viaProxy = await searchJioMartViaProxy(q, pin);
+        if (viaProxy && viaProxy.length) { results = viaProxy; sourceUsed = 'Local Proxy'; }
+      }
+      if (!results.length) {
+        var viaOrigins = await searchJioMartViaAllOrigins(q);
+        if (viaOrigins && viaOrigins.length) { results = viaOrigins; sourceUsed = 'AllOrigins'; }
+      }
 
       searchBtn.disabled = false;
       searchBtn.innerHTML = '<i class="ph-bold ph-magnifying-glass"></i> Search';
+      document.getElementById('resultsHeaderTitle').innerText = 'JioMart Results' + (sourceUsed ? ' (' + sourceUsed + ')' : '') + ':';
 
       if (results.length === 0) {
-        grid.innerHTML = '<p class="col-span-full text-xs text-rose-500 font-bold text-center py-2">କୌଣସି ଫଳାଫଳ ମିଳିଲା ନାହିଁ।</p>';
+        var hint = localStorage.getItem('munna_sheet_webhook')
+          ? ' — webhook/proxy ଠିକ୍ ଅଛି କିନ୍ତୁ JioMart ରୁ ଫଳାଫଳ ମିଳିଲା ନାହିଁ; ଅନ୍ୟ ନାମ ଚେଷ୍ଟା କରନ୍ତୁ।'
+          : ' — Admin → Sheets ରେ Apps Script Webhook ସେଟ୍ କରନ୍ତୁ (କିମ୍ବା Local Proxy ଦିଅନ୍ତୁ)।';
+        grid.innerHTML = '<p class="col-span-full text-xs text-rose-500 font-bold text-center py-2">କୌଣସି ଫଳାଫଳ ମିଳିଲା ନାହିଁ' + hint + '</p>';
         return;
       }
 
@@ -1299,10 +1394,20 @@
       localStorage.setItem('munna_sheet_webhook', u);
       alert("Webhook Saved!");
       syncFromGoogleSheet();
+      syncOrdersFromSheet();
+      syncAddressesFromSheet();
+    }
+    function saveJioMartProxy() {
+      var u = document.getElementById('jiomartProxyInput').value.trim();
+      localStorage.setItem('munna_jiomart_proxy', u);
+      alert(u ? "JioMart Proxy Saved! (e.g. http://localhost:8085)" : "JioMart Proxy Cleared!");
     }
 
     async function syncFromGoogleSheet() {
-      var hook = localStorage.getItem('munna_sheet_webhook');
+      // Prefer the saved webhook; fall back to DEFAULT_SHEET_WEBHOOK so a
+      // brand-new device still fetches the LIVE inventory instead of staying
+      // on the built-in sample products.
+      var hook = (localStorage.getItem('munna_sheet_webhook') || '').trim() || DEFAULT_SHEET_WEBHOOK;
       if (!hook) return;
       try {
         var res = await fetch(hook);
@@ -1317,6 +1422,8 @@
     }
     async function manualSync() {
       await syncFromGoogleSheet();
+      await syncOrdersFromSheet();
+      await syncAddressesFromSheet();
       alert("Google Sheets Sync Complete!");
     }
 
@@ -1325,12 +1432,206 @@
     function uidKey(base) { var u = getTgUser(); return base + '_' + (u && u.id ? u.id : 'anon'); }
     function getAddresses() { try { return JSON.parse(localStorage.getItem(uidKey('munna_addresses')) || '[]'); } catch(e){ return []; } }
     function setAddresses(a) { try { localStorage.setItem(uidKey('munna_addresses'), JSON.stringify(a)); } catch(e){} }
-    function getMyOrders() { try { return JSON.parse(localStorage.getItem('MUNA_ALL_ORDERS') || '[]'); } catch(e){ return []; } }
+    // --- UNIFIED ORDER MODEL (same format as the Telegram bot's Google Sheet) ---
+    // Orders tab: Timestamp | Order ID | Customer Name | Phone | Address |
+    // Items | Total | Channel | Telegram User ID | Status | Status Msg ID |
+    // Location | Payment  (see db.ORDERS_HEADERS in the bot)
+    var ORDER_STATUSES = ['pending', 'accepted', 'packing', 'out_for_delivery', 'delivered', 'cancelled'];
+    var STATUS_STAGE = { pending: 1, accepted: 2, packing: 3, out_for_delivery: 4, delivered: 5, cancelled: 5 };
+    var STAGE_STATUS = ['pending', 'accepted', 'packing', 'out_for_delivery', 'delivered'];
+
+    // Order id shaped exactly like the bot's db.make_order_id(): MUN-YYYYMMDD-XXXXXX
+    function makeOrderId() {
+      var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); };
+      var stamp = '' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate());
+      var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', rand = '';
+      for (var i = 0; i < 6; i++) rand += chars.charAt(Math.floor(Math.random() * chars.length));
+      return 'MUN-' + stamp + '-' + rand;
+    }
+    // Timestamp shaped like the bot's "%Y-%m-%d %H:%M:%S"
+    function sheetTimestamp(d) {
+      var p = function (n) { return String(n).padStart(2, '0'); };
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' +
+        p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    }
+    // Items text shaped like the bot: "Oil x2 @ Rs.340; Salt x1 @ Rs.25"
+    function itemsToText(lines) {
+      return (lines || []).map(function (l) {
+        return l.name + ' x' + (parseInt(l.qty, 10) || 1) + ' @ Rs.' + (parseFloat(l.price) || 0);
+      }).join('; ');
+    }
+    function parseItemsText(txt) {
+      if (Array.isArray(txt)) return txt;
+      var out = [];
+      String(txt || '').split(';').forEach(function (seg) {
+        seg = seg.trim();
+        if (!seg) return;
+        var m = seg.match(/^(.*?)\s*[xX]\s*(\d+)\s*@\s*Rs\.?\s*(.+)$/);
+        if (m) out.push({ name: m[1].trim(), qty: parseInt(m[2], 10) || 1, price: parseFloat(m[3]) || 0 });
+        else out.push({ name: seg, qty: 1, price: 0 });
+      });
+      return out;
+    }
+    // Accepts: Sheet rows (bot), our unified objects, and old local orders.
+    // Every order reaches ONE shape, so the UI never cares where it came from.
+    function normalizeOrder(o) {
+      if (!o || typeof o !== 'object') return null;
+      var id = String(o.order_id || o.id || '').trim();
+      if (!id) return null;
+      var itemsRaw = (o.items !== undefined && o.items !== null) ? o.items : (o.items_text || '');
+      var lines = (Array.isArray(itemsRaw) && itemsRaw.length && typeof itemsRaw[0] === 'object' && itemsRaw[0] !== null)
+        ? itemsRaw.map(function (it) {
+            return { ean: it.ean || '', name: it.name || 'Item', qty: parseInt(it.qty, 10) || 1, price: parseFloat(it.price) || 0 };
+          })
+        : parseItemsText(itemsRaw);
+      var status = String(o.status || '').trim();
+      if (ORDER_STATUSES.indexOf(status) < 0) {
+        var stageN = parseInt(o.stage, 10);
+        status = (stageN >= 1 && stageN <= 5) ? STAGE_STATUS[stageN - 1] : 'pending';
+      }
+      var lat = o.lat, lng = o.lng;
+      if ((lat === undefined || lat === '' || lat === null) && o.location) {
+        var locParts = String(o.location).split(',');
+        lat = parseFloat(locParts[0]);
+        lng = parseFloat(locParts[1]);
+      }
+      var ts = o.timestamp || o.date || '';
+      if (ts.indexOf('T') >= 0) ts = ts.replace('T', ' ').substring(0, 19);
+      var name = o.customer_name || o.name || '';
+      return {
+        id: id, order_id: id, date: ts, timestamp: ts,
+        name: name, customer_name: name,
+        phone: o.phone || '', address: o.address || '',
+        lat: lat, lng: lng,
+        location: o.location || ((lat !== undefined && lat !== '' && !isNaN(lat)) ? (lat + ',' + lng) : ''),
+        payment: o.payment || 'COD',
+        total: parseFloat(String(o.total || 0).replace(/,/g, '')) || 0,
+        items: lines,
+        items_text: (typeof itemsRaw === 'string' && itemsRaw) ? itemsRaw : itemsToText(lines),
+        stage: STATUS_STAGE[status] || 1,
+        status: status,
+        channel: o.channel || 'webapp',
+        telegram_user_id: o.telegram_user_id || '',
+        status_msg_id: o.status_msg_id || ''
+      };
+    }
+    function getMyOrders() {
+      try {
+        return (JSON.parse(localStorage.getItem('MUNA_ALL_ORDERS') || '[]') || [])
+          .map(normalizeOrder).filter(Boolean);
+      } catch (e) { return []; }
+    }
     function setMyOrders(o) { try { localStorage.setItem('MUNA_ALL_ORDERS', JSON.stringify(o)); } catch(e){} }
+
 
     function sendToBot(payload) {
       if (tg && tg.sendData) { try { tg.sendData(JSON.stringify(payload)); return true; } catch(e){} }
       return false;
+    }
+
+    // --- SHARED-DATABASE HELPERS (Google Sheet via Apps Script webhook) ---
+    function sheetHookUrl(suffix) {
+      var hook = localStorage.getItem('munna_sheet_webhook');
+      if (!hook) return '';
+      return hook + (hook.indexOf('?') >= 0 ? '&' : '?') + (suffix || '');
+    }
+    function postToSheet(payload) {
+      var hook = localStorage.getItem('munna_sheet_webhook');
+      if (!hook) return;
+      try {
+        fetch(hook, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {}
+    }
+    // Status change (webapp admin) -> shared Sheet -> bot edits the customer's
+    // live Telegram status message.
+    function pushOrderStatus(order) {
+      if (!order) return;
+      postToSheet({ action: 'update_order_status', order_id: order.order_id, status: order.status });
+    }
+    // Bill edit (webapp admin) -> shared Sheet (bot admin panel reads it).
+    function pushOrderBill(order) {
+      if (!order) return;
+      postToSheet({
+        action: 'update_order_bill',
+        order_id: order.order_id,
+        items: order.items_text || itemsToText(order.items),
+        total: order.total
+      });
+    }
+    // Address book -> bot (Telegram) or the shared Addresses tab (browser).
+    function pushAddressToSheet(addr) {
+      if (!addr) return;
+      if (sendToBot({ action: 'SAVE_ADDRESS', customer: addr.name, name: addr.name, phone: addr.phone, address: addr.address })) return;
+      var u = getTgUser();
+      if (u && u.id) {
+        postToSheet({ action: 'save_address', user_id: String(u.id), name: addr.name, phone: addr.phone, address: addr.address, location: '' });
+      }
+    }
+
+    // Pull orders from the shared Sheet: Telegram (chat/miniapp/ai) + browser
+    // (webapp) orders all show up here. The Sheet wins on conflicts because
+    // the bot's Admin Panel advances status there.
+    async function syncOrdersFromSheet() {
+      var url = sheetHookUrl('action=GET_ORDERS');
+      if (!url) return false;
+      try {
+        var res = await fetch(url);
+        var data = await res.json();
+        var remote = (data && Array.isArray(data.orders)) ? data.orders : [];
+        if (!remote.length) return false;
+        var byId = {};
+        getMyOrders().forEach(function (o) { byId[o.order_id] = o; });
+        remote.forEach(function (r) {
+          var n = normalizeOrder(r);
+          if (n) byId[n.order_id] = n;
+        });
+        var merged = Object.keys(byId).map(function (k) { return byId[k]; })
+          .sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+        setMyOrders(merged);
+        var os = document.getElementById('ordersScreen');
+        if (os && !os.classList.contains('hidden')) renderOrders();
+        var ad = document.getElementById('adminDashboard');
+        if (ad && !ad.classList.contains('hidden')) renderAdminOrders();
+        return true;
+      } catch (e) { return false; }
+    }
+    // Pull the customer's saved address from the bot (bot checkout / SAVE_ADDRESS).
+    async function syncAddressesFromSheet() {
+      var u = getTgUser();
+      if (!u || !u.id) return false;
+      var url = sheetHookUrl('action=GET_ADDRESSES&user_id=' + encodeURIComponent(u.id));
+      if (!url) return false;
+      try {
+        var res = await fetch(url);
+        var data = await res.json();
+        var remote = (data && Array.isArray(data.addresses)) ? data.addresses : [];
+        if (!remote.length) return false;
+        var a = remote[0];
+        var local = getAddresses();
+        var match = null;
+        if (String(a.phone || '').trim()) {
+          match = local.filter(function (x) { return String(x.phone || '').trim() === String(a.phone).trim(); })[0] || null;
+        }
+        if (match) {
+          match.name = a.name || match.name;
+          match.phone = a.phone || match.phone;
+          match.address = a.address || match.address;
+        } else {
+          match = { id: 'A' + Date.now(), name: a.name || '', phone: a.phone || '', address: a.address || '' };
+          local.unshift(match);
+        }
+        local.forEach(function (x) { x.isDefault = (x === match); });
+        setAddresses(local);
+        var al = document.getElementById('addressScreen');
+        if (al && !al.classList.contains('hidden')) renderAddressList();
+        prefillOrderForm();
+        return true;
+      } catch (e) { return false; }
     }
 
     function prefillOrderForm() {
@@ -1387,6 +1688,8 @@
         list.push({ id: 'A' + Date.now(), name, phone, address, isDefault: isDefault || list.length === 0 });
       }
       setAddresses(list);
+      // Sync to the shared database (Telegram bot reads the same entry).
+      pushAddressToSheet((id && list.find(x => x.id === id)) || list[list.length - 1]);
       closeAddressForm();
       renderAddressList();
     }
@@ -1424,7 +1727,14 @@
       try {
         var sp = new URLSearchParams(window.location.search);
         var sUrl = sp.get('sheet');
-        if (sUrl) localStorage.setItem('munna_sheet_webhook', sUrl);
+        // ?sheet= deep-link always wins (the bot passes its webhook this way).
+        if (sUrl) {
+          localStorage.setItem('munna_sheet_webhook', sUrl);
+        } else if (!localStorage.getItem('munna_sheet_webhook') && DEFAULT_SHEET_WEBHOOK) {
+          // First visit on a new device: adopt the default webhook and pull
+          // the LIVE catalog right away instead of the sample products.
+          localStorage.setItem('munna_sheet_webhook', DEFAULT_SHEET_WEBHOOK);
+        }
       } catch(e){}
 
       initCarousel();
@@ -1432,7 +1742,14 @@
       prefillOrderForm();
       renderProfile();
       updateCartBadge();
+      // Fetch + render live inventory (localStorage webhook or DEFAULT_SHEET_WEBHOOK).
       syncFromGoogleSheet();
+      // Shared-database sync: Telegram (bot) orders + saved addresses, then
+      // keep refreshing so stage/status changes made in the bot show up here.
+      syncOrdersFromSheet();
+      syncAddressesFromSheet();
+      setInterval(function () { syncOrdersFromSheet(); }, 60000);
+      setInterval(function () { syncAddressesFromSheet(); }, 300000);
     });
   </script>
 </body>
