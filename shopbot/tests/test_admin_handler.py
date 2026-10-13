@@ -1225,6 +1225,82 @@ def test_browse_search_cards():
         ah._category_cache.clear()
 
 
+def test_imglink_generator():
+    """🖼 Image Link Generator: keyword -> JioMart photo cards with the URL."""
+    import re
+
+    import admin_handler as ah
+
+    set_admin("12345")
+    admin = FakeUser(12345)
+
+    urls = [
+        "https://cdn.example/oil-1.jpg",
+        "https://cdn.example/oil-2.jpg",
+        "https://cdn.example/oil-3.jpg",
+    ]
+    seen = {}
+
+    def fake_fetch(keyword, start_index=1):
+        seen["keyword"] = keyword
+        seen["start"] = start_index
+        return list(urls)
+
+    restore = patch_fetch(fake_fetch)
+    try:
+        # 1. Panel home has the button; the pattern accepts the callbacks.
+        home = ah._panel_home_keyboard()
+        home_cbs = [b.callback_data for row in home.inline_keyboard for b in row]
+        check("panel home has Image Link Generator button", "admin_imglink" in home_cbs)
+        pat = re.compile(ah.PANEL_CALLBACK_PATTERN)
+        check("pattern accepts admin_imglink", bool(pat.match("admin_imglink")))
+        check("pattern accepts admin_imglink_more_4",
+              bool(pat.match("admin_imglink_more_4")))
+        check("pattern accepts admin_imglink_urls", bool(pat.match("admin_imglink_urls")))
+
+        # 2. Tapping the button arms the prompt + state.
+        ctx = FakeContext()
+        qs = FakeQuery("admin_imglink", FakeMessage(message_id=1), admin)
+        asyncio.run(ah.handle_admin_panel_callback(FakeUpdate(callback_query=qs), ctx))
+        check("imglink enters state", ctx.user_data.get("state") == ah.STATE_IMAGE_LINK)
+        check("imglink shows prompt", bool(qs.message.edits))
+
+        # 3. Typing a keyword searches JioMart and posts photo cards.
+        msg = FakeMessage(text="fortune oil", user=admin, chat_id=777, message_id=5)
+        asyncio.run(ah.handle_admin_panel_text(FakeUpdate(message=msg, user=admin), ctx))
+        check("imglink queries JioMart", seen.get("keyword") == "fortune oil")
+        check("imglink keeps state alive",
+              ctx.user_data.get("state") == ah.STATE_IMAGE_LINK)
+        photos = [x for x in ctx.bot.sent if x.get("__kind") == "photo"]
+        check("imglink sends 3 photo cards", len(photos) == 3)
+        caption = (photos[0].get("caption") or "") if photos else ""
+        check("imglink caption has the raw URL in a code block",
+              "<code>" + urls[0] + "</code>" in caption)
+        check("imglink caption links the URL", "href='" + urls[0] + "'" in caption)
+        markup = photos[0].get("reply_markup") if photos else None
+        cbs = [b.callback_data for row in markup.inline_keyboard for b in row] if markup else []
+        check("imglink card has More + All URLs", "admin_imglink_more_4" in cbs
+              and "admin_imglink_urls" in cbs)
+
+        # 4. "All URLs" posts one message with tappable code blocks.
+        qs_msg = FakeMessage(message_id=2)
+        qs2 = FakeQuery("admin_imglink_urls", qs_msg, admin)
+        asyncio.run(ah.handle_admin_panel_callback(FakeUpdate(callback_query=qs2), ctx))
+        joined = "\n".join(t or "" for t, _ in qs_msg.replies)
+        check("imglink All URLs lists every URL", all(u in joined for u in urls))
+
+        # 5. No results -> Odia hint, state stays so another keyword works.
+        restore()
+        restore = patch_fetch(lambda keyword, start_index=1: [])
+        msg2 = FakeMessage(text="zzzz", user=admin, chat_id=777, message_id=6)
+        asyncio.run(ah.handle_admin_panel_text(FakeUpdate(message=msg2, user=admin), ctx))
+        check("imglink no results hint", any("ମିଳିଲା ନାହିଁ" in (t or "") for t, _ in msg2.replies))
+        check("imglink keeps state after no results",
+              ctx.user_data.get("state") == ah.STATE_IMAGE_LINK)
+    finally:
+        restore()
+
+
 def test_add_admin_flow():
     """👥 Add Admin: grant + revoke stock-manage access from the panel."""
     import re
@@ -1597,6 +1673,7 @@ def main() -> int:
         test_delete_item_flow()
         test_browse_search_cards()
         test_add_admin_flow()
+        test_imglink_generator()
         test_ai_toggle()
         test_manual_add_flow()
         test_manual_add_save()

@@ -80,6 +80,7 @@ PANEL_CALLBACK_PATTERN = (
     r"admin_ord_bill_[\w-]+|admin_ord_rm_[\w-]+_\d+|"
     r"admin_manual|admin_manual_newcat|admin_manual_cat_\d+|"
     r"admin_manual_skip_ean|admin_manual_cancel|"
+    r"admin_imglink|admin_imglink_more_\d+|admin_imglink_urls|admin_imglink_copy|"
     r"export_item_\d+|"
     r"edit_(name|mrp|price|qty|pack|category)_\d+)$"
 )
@@ -89,6 +90,9 @@ STATE_SEARCH_PRODUCT = "ADMIN_SEARCH_PRODUCT"
 STATE_SET_PINCODE = "ADMIN_SET_PINCODE"
 STATE_BROWSE_SEARCH = "ADMIN_BROWSE_SEARCH"
 STATE_ADD_ADMIN = "ADMIN_ADD_ADMIN"
+# "🖼 Image Link Generator": admin types a keyword -> JioMart image URLs
+# (clickable + copyable) for manual products / offer banners.
+STATE_IMAGE_LINK = "ADMIN_IMAGE_LINK"
 # manual add-product conversation (category -> name -> photo -> prices ->
 # qty -> ean), collected in context.user_data["manual"]
 STATE_MANUAL_CATEGORY = "ADMIN_MANUAL_CATEGORY"
@@ -885,6 +889,17 @@ PANEL_TEXT_DONE = "✅ ସର୍ଚ୍ଚ ସମାପ୍ତ। /start ରେ �
 
 # Browse-by-category (Product > Category > Item) + delete
 PANEL_TEXT_BROWSE = "🗂 <b>ବର୍ଗ ଅନୁସାରେ ବ୍ରାଉଜ୍</b>\n\nଏକ ବର୍ଗ ବାଛନ୍ତୁ:"
+# 🖼 Image Link Generator (manual product photo / offer banner)
+PANEL_TEXT_IMGLINK_PROMPT = (
+    "🖼 <b>Image Link Generator</b>\n\n"
+    "ଏକ ପ୍ରୋଡକ୍ଟ ନାଁ ଲେଖନ୍ତୁ — ମୁଁ JioMart ରୁ ଫଟୋ ଲିଙ୍କ୍ ଆଣି ଦେବି।\n"
+    "ଉଦାହରଣ: <code>Fortune Mustard Oil 1L</code>\n\n"
+    "🔍 ଏକ କିୱାର୍ଡ ପଠାନ୍ତୁ।"
+)
+PANEL_TEXT_IMGLINK_SEARCHING = "🔎 ଫଟୋ ଲିଙ୍କ୍ ଖୋଜୁଛି... ଅପେକ୍ଷା କରନ୍ତୁ।"
+PANEL_TEXT_IMGLINK_NONE = "❌ ଏହି ନାଁରେ କୌଣସି ଫଟୋ ମିଳିଲା ନାହିଁ। ଅନ୍ୟ ନାଁ ଚେଷ୍ଟା କରନ୍ତୁ।"
+PANEL_TEXT_IMGLINK_BAD = "❌ ଭୁଲ ଇନପୁଟ୍ — ଏକ ପ୍ରୋଡକ୍ଟ ନାଁ ପଠାନ୍ତୁ।"
+PANEL_TEXT_IMGLINK_URLS = "📋 <b>ସମସ୍ତ ଫଟୋ ଲିଙ୍କ୍</b> — ଟ୍ୟାପ୍ କରି କପି କରନ୍ତୁ:"
 PANEL_TEXT_BROWSE_SEARCH_PROMPT = (
     "🔍 <b>ବ୍ରାଉଜ୍ ସର୍ଚ୍ଚ</b>\n\n"
     "ଡାଟାବେସ୍‌ରେ ଖୋଜିବାକୁ ଏକ ପ୍ରୋଡକ୍ଟ ନାଁ / ବର୍ଗ / EAN ପଠାନ୍ତୁ।"
@@ -923,6 +938,7 @@ def _panel_home_keyboard(pincode: Optional[str] = None) -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton("➕ Search & Add Product", callback_data="admin_search")],
         [InlineKeyboardButton("➕ Add Product Manually", callback_data="admin_manual")],
+        [InlineKeyboardButton("🖼 Image Link Generator", callback_data="admin_imglink")],
         [InlineKeyboardButton("🗂 Browse by Category", callback_data="admin_browse")],
         [InlineKeyboardButton("📦 Orders (manage)", callback_data="admin_orders")],
         [InlineKeyboardButton("👥 Add Admin", callback_data="admin_addadmin")],
@@ -1856,6 +1872,72 @@ def _editbill_keyboard(order):
 
 # Admin Panel: callback queries (panel / search / export / edit_*)
 # --------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------- #
+# 🖼 Image Link Generator (manual product photo / offer banner URL)
+# --------------------------------------------------------------------------- #
+IMGLINK_BATCH = 3      # photos shown per page
+IMGLINK_MAX_START = 60
+
+
+def _imglink_keyboard(start_index: int) -> InlineKeyboardMarkup:
+    rows: List[List[InlineKeyboardButton]] = []
+    if start_index + IMGLINK_BATCH <= IMGLINK_MAX_START:
+        rows.append(
+            [InlineKeyboardButton("More ➡️", callback_data=f"admin_imglink_more_{start_index + IMGLINK_BATCH}")]
+        )
+    rows.append([InlineKeyboardButton("📋 All URLs (copy)", callback_data="admin_imglink_urls")])
+    rows.append([InlineKeyboardButton("⬅️ Admin Panel", callback_data="admin_panel")])
+    return InlineKeyboardMarkup(rows)
+
+
+async def _send_imglink_photos(message, context, keyword: str, start_index: int = 1) -> None:
+    """Search JioMart and post photo cards whose captions carry the image URL.
+
+    Each caption has BOTH a clickable link and the raw URL in a ``code`` block
+    (Telegram's tap-to-copy bar), so the admin can copy the URL for a manual
+    product or an offer banner. Results are cached in ``context.user_data`` so
+    "All URLs" / "More" can reuse them.
+    """
+    keyword = str(keyword or "").strip()
+    if not keyword:
+        await message.reply_text(
+            PANEL_TEXT_IMGLINK_BAD, parse_mode=ParseMode.HTML,
+            reply_markup=_panel_home_keyboard(context.user_data.get("panel_pincode")),
+        )
+        return
+    urls: List[str] = await asyncio.to_thread(
+        fetch_images, keyword, start_index
+    )
+    urls = [u for u in (urls or []) if isinstance(u, str) and u.startswith("http")][:IMGLINK_BATCH]
+    if not urls:
+        await message.reply_text(PANEL_TEXT_IMGLINK_NONE, parse_mode=ParseMode.HTML)
+        return  # stay in STATE_IMAGE_LINK so the admin can type another keyword
+    context.user_data["imglink_urls"] = urls
+    context.user_data["imglink_start"] = start_index
+    context.user_data["imglink_keyword"] = keyword
+    context.user_data["state"] = STATE_IMAGE_LINK
+    for index, url in enumerate(urls):
+        caption = (
+            f"🖼 <b>{html.escape(keyword)}</b> — ଫଟୋ {start_index + index}\n"
+            f"🔗 <a href='{url}'>{url}</a>\n"
+            f"<code>{url}</code>"
+        )
+        try:
+            await context.bot.send_photo(
+                chat_id=message.chat_id, photo=url, caption=caption,
+                parse_mode=ParseMode.HTML, reply_markup=_imglink_keyboard(start_index),
+            )
+        except TelegramBadRequest as exc:
+            logger.warning("Image link card failed for %s: %s", url, exc)
+            try:
+                await message.reply_text(
+                    caption, parse_mode=ParseMode.HTML,
+                    reply_markup=_imglink_keyboard(start_index),
+                )
+            except TelegramBadRequest:
+                pass
+
+
 async def handle_admin_panel_callback(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -1951,6 +2033,54 @@ async def handle_admin_panel_callback(
     if data == "admin_manual":
         # Guided manual add: Step 1 (Smart Category) comes from the sheet.
         await _start_manual_flow(query, context)
+        return
+
+    # ---- 🖼 Image Link Generator (manual product photo / offer banner) -----
+    if data == "admin_imglink":
+        context.user_data["state"] = STATE_IMAGE_LINK
+        context.user_data.pop("imglink_urls", None)
+        await query.answer()
+        await _edit_to_html(query.message, PANEL_TEXT_IMGLINK_PROMPT)
+        return
+
+    if data.startswith("admin_imglink_more_"):
+        # "More ➡️" -> next batch of image URLs for the same keyword.
+        offset_text = data[len("admin_imglink_more_"):].strip()
+        try:
+            offset = int(offset_text)
+        except ValueError:
+            offset = 1
+        keyword = str(context.user_data.get("imglink_keyword") or "").strip()
+        if not keyword:
+            await query.answer(PANEL_TEXT_EXPIRED, show_alert=True)
+            return
+        await query.answer("🔎 More images...")
+        reply_message = query.message
+        if reply_message is None or not hasattr(reply_message, "reply_text"):
+            return
+        await _send_imglink_photos(reply_message, context, keyword, max(1, offset))
+        return
+
+    if data == "admin_imglink_urls":
+        # "📋 All URLs (copy)" -> one message listing the URLs as tappable
+        # code blocks (Telegram shows a copy button under each).
+        urls = [u for u in (context.user_data.get("imglink_urls") or []) if isinstance(u, str)]
+        if not urls:
+            await query.answer(PANEL_TEXT_EXPIRED, show_alert=True)
+            return
+        await query.answer()
+        reply_message = query.message
+        if reply_message is None or not hasattr(reply_message, "reply_text"):
+            return
+        lines = [f"{i}. <code>{html.escape(u)}</code>" for i, u in enumerate(urls, 1)]
+        try:
+            await reply_message.reply_text(
+                PANEL_TEXT_IMGLINK_URLS + "\n\n" + "\n".join(lines),
+                parse_mode=ParseMode.HTML,
+                reply_markup=_panel_home_keyboard(context.user_data.get("panel_pincode")),
+            )
+        except TelegramBadRequest as exc:
+            logger.warning("Could not send image URLs: %s", exc)
         return
 
     if data == "admin_manual_newcat":
@@ -2568,6 +2698,12 @@ async def handle_admin_panel_text(
         await _send_browse_search_cards(message, context, text)
         return
 
+    if state == STATE_IMAGE_LINK:
+        # 🖼 Image Link Generator: the typed text is the product keyword.
+        _mark_consumed(message.message_id)
+        await _send_imglink_photos(message, context, text)
+        return
+
     if state == STATE_ADD_ADMIN:
         # "👥 Add Admin": the typed text is the new admin's Telegram User ID.
         _mark_consumed(message.message_id)
@@ -2860,6 +2996,7 @@ __all__ = [
     "PANEL_PINCODES",
     "STATE_ADD_ADMIN",
     "STATE_BROWSE_SEARCH",
+    "STATE_IMAGE_LINK",
     "STATE_MANUAL_CATEGORY",
     "STATE_MANUAL_NEW_CATEGORY",
     "STATE_MANUAL_NAME",

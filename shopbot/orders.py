@@ -117,6 +117,34 @@ def admin_alert_text(
     return "\n".join(head)
 
 
+def admin_alert_keyboard(order_id: Any) -> Any:
+    """Inline ✅ Accept / ❌ Cancel buttons for a new-order admin alert.
+
+    The callback data is exactly what the Admin Panel already handles
+    (``admin_ord_ok_<id>`` / ``admin_ord_no_<id>``), so tapping straight from
+    the notification accepts or cancels the order and auto-updates the
+    customer's live status message. Returns ``None`` when there is no order id
+    (Telegram allows max 64 bytes of callback data).
+    """
+    oid = str(order_id or "").strip()
+    if not oid:
+        return None
+    try:
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+        return InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton("✅ Accept", callback_data=f"admin_ord_ok_{oid}"),
+                    InlineKeyboardButton("❌ Cancel", callback_data=f"admin_ord_no_{oid}"),
+                ],
+                [InlineKeyboardButton("📦 All orders", callback_data="admin_orders")],
+            ]
+        )
+    except Exception:  # noqa: BLE001 - never break the alert over a keyboard
+        return None
+
+
 def admin_ids() -> List[int]:
     """ADMIN_ID env values as ints (empty list when unset/dev-mode)."""
     raw = (os.getenv("ADMIN_ID") or "").strip()
@@ -134,8 +162,13 @@ def admin_ids() -> List[int]:
     return ids
 
 
-async def notify_admins(context, text: str) -> None:
-    """Send ``text`` (HTML) to every ADMIN_ID; never raises."""
+async def notify_admins(context, text: str, reply_markup: Any = None) -> None:
+    """Send ``text`` (HTML) to every ADMIN_ID; never raises.
+
+    ``reply_markup`` is optional - the new-order alerts pass an inline
+    keyboard with ✅ Accept / ❌ Cancel so the seller can act straight from
+    the notification (bot and webapp orders both).
+    """
     ids = admin_ids()
     if not ids:
         logger.info("No ADMIN_ID configured; skipping admin alert.")
@@ -143,7 +176,8 @@ async def notify_admins(context, text: str) -> None:
     for admin_id in ids:
         try:
             await context.bot.send_message(
-                chat_id=admin_id, text=text, parse_mode="HTML"
+                chat_id=admin_id, text=text, parse_mode="HTML",
+                reply_markup=reply_markup,
             )
         except Exception as exc:  # noqa: BLE001 - one bad id must not block others
             logger.warning("Could not alert admin %s: %s", admin_id, exc)
@@ -360,7 +394,7 @@ async def checkout(
         channel,
         telegram_user_id,
     )
-    await notify_admins(context, alert)
+    await notify_admins(context, alert, admin_alert_keyboard(summary.get("order_id")))
     try:
         from ai_agent import clear_cache as _clear_ai_cache
 
@@ -431,6 +465,7 @@ __all__ = [
     "STATE_CHECKOUT_ADDRESS",
     "STATE_CHECKOUT_LOCATION",
     "STATE_CHECKOUT_PHONE",
+    "admin_alert_keyboard",
     "admin_alert_text",
     "admin_ids",
     "bill_text",

@@ -39,9 +39,15 @@ import orders
 
 logger = logging.getLogger(__name__)
 
+# Webapp order -> Telegram sync timing. The loop polls the shared Orders tab,
+# so the interval is how long a fresh webapp order takes to reach the ADMIN_IDs
+# with the Accept/Cancel buttons (and how fast a webapp-admin status change
+# reaches the customer's live message). 12s keeps admins notified almost
+# instantly while staying well inside Google Sheets + Telegram rate limits;
+# override with WEB_SYNC_INTERVAL if needed.
 WEBAPP_CHANNEL = "webapp"
-DEFAULT_INTERVAL = float(os.getenv("WEB_SYNC_INTERVAL") or 30.0)
-DEFAULT_FIRST_DELAY = float(os.getenv("WEB_SYNC_FIRST_DELAY") or 15.0)
+DEFAULT_INTERVAL = float(os.getenv("WEB_SYNC_INTERVAL") or 12.0)
+DEFAULT_FIRST_DELAY = float(os.getenv("WEB_SYNC_FIRST_DELAY") or 8.0)
 STATE_FILE = Path(
     os.getenv("WEB_SYNC_STATE_FILE")
     or Path(__file__).resolve().with_name(".web_sync_state.json")
@@ -226,7 +232,9 @@ async def process_once(
             changed_state = True
             processed += 1
 
-            # 1) Admin alert (identical wording to chat/miniapp/ai channels).
+            # 1) Admin alert (identical wording to chat/miniapp/ai channels),
+            #    with inline ✅ Accept / ❌ Cancel so the seller can act on a
+            #    webapp order straight from the notification.
             try:
                 alert = orders.admin_alert_text(
                     order_id,
@@ -238,7 +246,9 @@ async def process_once(
                     WEBAPP_CHANNEL,
                     (order or {}).get("telegram_user_id") or "",
                 )
-                await orders.notify_admins(context, alert)
+                await orders.notify_admins(
+                    context, alert, orders.admin_alert_keyboard(order_id)
+                )
             except Exception:  # noqa: BLE001
                 logger.warning(
                     "Admin alert failed for %s", order_id, exc_info=True

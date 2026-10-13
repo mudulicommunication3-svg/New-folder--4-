@@ -457,7 +457,8 @@
 
               <div>
                 <label class="text-[11px] font-bold text-slate-700">Image URL</label>
-                <input type="url" id="newProdImg" oninput="updateImagePreview(this.value)" placeholder="https://..." class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+                <input type="url" id="newProdImg" oninput="updateImagePreview(this.value)" placeholder="https://... କିମ୍ବା JioMart ସର୍ଚ୍ଚରୁ ବାଛନ୍ତୁ" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+                <button type="button" onclick="switchAdminTab('banners')" class="mt-1 text-[10px] text-[#1864ab] font-bold hover:underline">🖼️ ନିଜ ଫଟୋର ଲିଙ୍କ୍ ତିଆରି କରନ୍ତୁ (Image Link Generator)</button>
                 <div id="imgPreviewBox" class="hidden mt-2 p-1.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center gap-2">
                   <img id="imgPreviewTag" src="" class="w-10 h-10 object-contain bg-white rounded border border-slate-100" alt="Preview">
                   <span class="text-[10px] text-emerald-600 font-bold">Image Ready!</span>
@@ -476,15 +477,64 @@
               <h4 class="text-xs font-black uppercase text-slate-500">Live Inventory</h4>
               <span id="adminTotalItems" class="text-xs font-bold text-[#1864ab]">0 Items</span>
             </div>
+            <!-- Database Search & Edit: find an existing product to edit -->
+            <div class="flex items-center gap-1.5 mb-2">
+              <div class="relative flex-1">
+                <i class="ph-bold ph-magnifying-glass absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="text" id="dbSearchInput" oninput="renderAdminList()"
+                       placeholder="🔍 ଡାଟାବେସ୍‌ରୁ ଖୋଜନ୍ତୁ (ନାଁ / EAN / ବର୍ଗ)..."
+                       class="w-full text-xs pl-7 pr-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+              </div>
+              <button type="button" onclick="clearDbSearch()" id="dbSearchClearBtn"
+                      class="hidden px-2 py-1.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-lg shrink-0">
+                Clear
+              </button>
+            </div>
             <div id="adminInventoryList" class="space-y-2 max-h-72 overflow-y-auto no-scrollbar"></div>
           </div>
         </div>
 
-        <!-- Tab 3: Promotional Banners (Max 5) -->
+        <!-- Tab 3: Promotional Banners (Max 5) + Image Link Generator -->
         <div id="admTab-banners" class="hidden space-y-3">
+          <!-- Image Link Generator: upload an image -> get a public URL -->
+          <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-2">
+            <h4 class="text-xs font-black text-slate-700 flex items-center gap-1">
+              <i class="ph-bold ph-image text-[#1864ab]"></i> 🖼️ Image Link Generator (ମ୍ୟାନୁଆଲ୍ ପ୍ରୋଡକ୍ଟ / ଅଫର୍ ବ୍ୟାନର୍)
+            </h4>
+            <p class="text-[10px] text-slate-500 leading-snug">
+              ଏକ ଫଟୋ ଅପଲୋଡ୍ କରନ୍ତୁ — ସର୍ଭରରେ ସେଭ୍ ହୋଇ ଏକ <b>ସିଧା ଇମେଜ୍ ଲିଙ୍କ୍ (URL)</b> ମିଳିବ, ଯାହା ଉଭୟ ପ୍ରୋଡକ୍ଟ ଓ ବ୍ୟାନର୍ ରେ ବ୍ୟବହାର କରିପାରିବେ।
+            </p>
+            <div class="flex items-center gap-1.5">
+              <input type="file" id="imgLinkFile" accept="image/*"
+                     class="flex-1 text-[10px] text-slate-600 file:mr-2 file:py-1.5 file:px-2 file:rounded-lg file:border-0 file:bg-blue-50 file:text-[#1864ab] file:font-bold file:text-[10px]">
+              <button type="button" onclick="generateImageLink()" id="imgLinkGenBtn"
+                      class="px-3 py-1.5 bg-[#1864ab] hover:bg-blue-800 text-white text-[11px] font-bold rounded-lg shrink-0 flex items-center gap-1">
+                <i class="ph-bold ph-link-simple"></i> Generate Link
+              </button>
+            </div>
+            <div id="imgLinkResult" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-2.5 space-y-1.5">
+              <div class="flex items-center gap-2">
+                <img id="imgLinkPreview" src="" alt="preview" class="w-12 h-12 object-contain bg-white rounded border border-slate-200">
+                <div class="flex-1 min-w-0">
+                  <p class="text-[10px] font-bold text-emerald-600">✅ ଲିଙ୍କ୍ ତିଆରି ହେଲା!</p>
+                  <p class="text-[9px] text-slate-500">ଲିଙ୍କ୍ କପି କରି ବ୍ୟବହାର କରନ୍ତୁ।</p>
+                </div>
+              </div>
+              <div class="flex gap-1.5">
+                <input type="text" id="imgLinkOutput" readonly class="flex-1 text-[10px] px-2 py-1 bg-white border border-slate-200 rounded-lg outline-none text-slate-700">
+                <button type="button" onclick="copyImgLink()" class="px-2.5 py-1 bg-slate-900 text-white text-[10px] font-bold rounded-lg shrink-0">Copy</button>
+                <button type="button" onclick="useImgLinkForBanner()" class="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded-lg shrink-0">→ Banner</button>
+              </div>
+            </div>
+            <p class="text-[9px] text-slate-400 leading-snug">
+              ⚙️ କାମ କରିବା ପାଇଁ ଥରେ <b>ImgBB API Key</b> ଦିଅନ୍ତୁ → <a href="https://api.imgbb.com/" target="_blank" class="text-[#1864ab] font-bold">api.imgbb.com</a> ରୁ ଫ୍ରି key ନିଅନ୍ତୁ।
+              (କୀ ସେଟ୍ ନ ଥିଲେ ଫଟୋ ସିଧା ଆପଣଙ୍କ ଡିଭାଇସ୍ ରେ ଲୋକାଲ୍ ପ୍ରିଭ୍ୟୁ ଭାବେ ରହିବ।)
+            </p>
+          </div>
+
           <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-2">
             <h4 class="text-xs font-black text-slate-700">📢 ୫-ସ୍ଲାଇଡ୍ ପ୍ରମୋସନ୍ ବ୍ୟାନର୍ ମ୍ୟାନେଜର୍</h4>
-            <input type="text" id="newBannerImg" placeholder="Image URL (https://...)" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none">
+            <input type="text" id="newBannerImg" placeholder="Image URL (https://...) — ଉପରର Generator ରୁ ପାଇପାରିବେ" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none">
             <input type="text" id="newBannerTitle" placeholder="Banner Title / Offer Text" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none">
             <button onclick="addBanner()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg">+ Add Banner</button>
           </div>
@@ -506,6 +556,12 @@
               <button onclick="saveJioMartProxy()" class="px-2.5 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg shrink-0">Save</button>
             </div>
             <p class="text-[10px] text-slate-400 leading-snug">🔍 JioMart search କ୍ରମ: Apps Script Webhook → Local Proxy → AllOrigins। Webhook ରେ SEARCH_JIOMART ପୂର୍ବରୁ ଅଛି ତେଣୁ webhook ସେଟ୍ ଥିଲେ proxy ଦରକାର ନାହିଁ।</p>
+            <label class="text-[11px] font-bold text-slate-700 block pt-1">🖼️ ImgBB API Key (Image Link Generator ପାଇଁ — ଫ୍ରି: api.imgbb.com)</label>
+            <div class="flex gap-1.5">
+              <input type="text" id="imgbbKeyInput" placeholder="ImgBB API key ପେଷ୍ଟ କରନ୍ତୁ..." class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none">
+              <button onclick="saveImgbbKey()" class="px-2.5 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg shrink-0">Save</button>
+            </div>
+            <p class="text-[10px] text-slate-400 leading-snug">📤 ଥରେ key ସେଟ୍ କଲେ Banners ଟ୍ୟାବ୍ ର Image Link Generator ଦ୍ୱାରା ଫଟୋ ଅପଲୋଡ୍ କରି ସିଧା ଲିଙ୍କ୍ ପାଇପାରିବେ।</p>
           </div>
         </div>
       </div>
@@ -1026,6 +1082,7 @@
         var hook = localStorage.getItem('munna_sheet_webhook');
         if (hook) document.getElementById('webhookInput').value = hook;
         document.getElementById('jiomartProxyInput').value = localStorage.getItem('munna_jiomart_proxy') || '';
+        document.getElementById('imgbbKeyInput').value = localStorage.getItem('munna_imgbb_key') || '';
       } else {
         alert("ଭୁଲ୍ PIN (Default: 1234)!");
       }
@@ -1072,7 +1129,7 @@
           <div class="bg-white p-3 rounded-2xl border border-slate-200 space-y-2">
             <div class="flex justify-between items-center">
               <span class="font-black text-xs text-slate-900">#${o.id} - ${o.name}</span>
-              <span class="text-[10px] bg-blue-100 text-[#1864ab] font-black px-2 py-0.5 rounded-md">Stage ${o.stage||1}/5</span>
+              <span class="text-[10px] bg-blue-100 text-[#1864ab] font-black px-2 py-0.5 rounded-md">${statusLabel(o.status)}</span>
             </div>
             <div class="text-[11px] text-slate-600">${o.phone} · ${o.address}</div>
             <div class="space-y-1">${itemsEditorHtml}</div>
@@ -1080,15 +1137,55 @@
               <a href="${mapsLink}" target="_blank" class="text-[#1864ab] flex items-center gap-1"><i class="ph-bold ph-navigation-arrow"></i> Google Maps Route</a>
               <span>Bill: Rs.${money(o.total)}</span>
             </div>
-            <div class="grid grid-cols-4 gap-1 pt-1">
-              <button onclick="setOrderFulfillmentStage(${oIdx}, 2)" class="py-1 rounded bg-sky-600 text-white text-[10px] font-bold">2. Accept</button>
-              <button onclick="setOrderFulfillmentStage(${oIdx}, 3)" class="py-1 rounded bg-amber-500 text-white text-[10px] font-bold">3. Packing</button>
-              <button onclick="setOrderFulfillmentStage(${oIdx}, 4)" class="py-1 rounded bg-orange-600 text-white text-[10px] font-bold">4. Dispatch</button>
-              <button onclick="setOrderFulfillmentStage(${oIdx}, 5)" class="py-1 rounded bg-emerald-600 text-white text-[10px] font-bold">5. Delivered</button>
-            </div>
+            ${adminOrderActionsHtml(o, oIdx)}
           </div>
         `;
       }).join('');
+    }
+
+    // Status -> human label + colour for the admin / customer views.
+    var STATUS_LABELS = {
+      pending: '🕐 Pending', accepted: '✅ Accepted', packing: '📦 Packing',
+      out_for_delivery: '🚚 Out for delivery', delivered: '🎉 Delivered', cancelled: '❌ Cancelled'
+    };
+    function statusLabel(s) { return STATUS_LABELS[s] || ('• ' + (s || 'pending')); }
+
+    // Status-aware action buttons: Pending -> big Accept/Reject; active ->
+    // progress buttons; finished -> nothing.
+    function adminOrderActionsHtml(o, oIdx) {
+      if (o.status === 'pending') {
+        return `
+          <div class="flex gap-2 pt-1">
+            <button onclick="adminAcceptOrder(${oIdx})" class="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-extrabold shadow-sm">✅ Accept</button>
+            <button onclick="adminRejectOrder(${oIdx})" class="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-extrabold shadow-sm">❌ Reject</button>
+          </div>`;
+      }
+      if (o.status === 'cancelled' || o.status === 'delivered') {
+        return `<div class="text-[10px] text-center text-slate-400 font-bold pt-1">ଏହି ଅର୍ଡର ${statusLabel(o.status)} — ସରିଛି।</div>`;
+      }
+      // accepted / packing / out_for_delivery -> keep the 5-stage progress.
+      return `
+        <div class="grid grid-cols-4 gap-1 pt-1">
+          <button onclick="setOrderFulfillmentStage(${oIdx}, 2)" class="py-1 rounded bg-sky-600 text-white text-[10px] font-bold">2. Accept</button>
+          <button onclick="setOrderFulfillmentStage(${oIdx}, 3)" class="py-1 rounded bg-amber-500 text-white text-[10px] font-bold">3. Packing</button>
+          <button onclick="setOrderFulfillmentStage(${oIdx}, 4)" class="py-1 rounded bg-orange-600 text-white text-[10px] font-bold">4. Dispatch</button>
+          <button onclick="setOrderFulfillmentStage(${oIdx}, 5)" class="py-1 rounded bg-emerald-600 text-white text-[10px] font-bold">5. Delivered</button>
+        </div>`;
+    }
+
+    function adminAcceptOrder(oIdx) {
+      setOrderFulfillmentStage(oIdx, 2);
+    }
+
+    function adminRejectOrder(oIdx) {
+      if (!confirm('ଆପଣ ଏହି ଅର୍ଡର ବାତିଲ୍ କରିବାକୁ ଚାହୁଁଛନ୍ତି କି?')) return;
+      var orders = getMyOrders();
+      orders[oIdx].status = 'cancelled';
+      orders[oIdx].stage = 5;
+      setMyOrders(orders);
+      pushOrderStatus(orders[oIdx]); // -> Sheet -> bot edits customer's live message
+      renderAdminOrders();
+      alert('❌ Order #' + orders[oIdx].id + ' ବାତିଲ୍ ହେଲା।');
     }
 
     function changeAdminOrderQty(oIdx, itIdx, delta) {
@@ -1158,6 +1255,90 @@
       localStorage.setItem('SHOP_BANNERS', JSON.stringify(banners));
       initCarousel();
       renderAdminBanners();
+    }
+
+    // --- IMAGE LINK GENERATOR (upload -> public URL via ImgBB) ---
+    function saveImgbbKey() {
+      var k = document.getElementById('imgbbKeyInput').value.trim();
+      localStorage.setItem('munna_imgbb_key', k);
+      alert(k ? "✅ ImgBB API Key ସେଭ୍ ହେଲା! ଏବେ Banners ଟ୍ୟାବ୍ ରୁ ଫଟୋ ଅପଲୋଡ୍ କରି ଲିଙ୍କ୍ ତିଆରି କରନ୍ତୁ।" : "⚠️ ImgBB Key ହଟାଗଲା।");
+    }
+
+    function getImgbbKey() {
+      return (localStorage.getItem('munna_imgbb_key') || '').trim();
+    }
+
+    async function generateImageLink() {
+      var fileInput = document.getElementById('imgLinkFile');
+      var btn = document.getElementById('imgLinkGenBtn');
+      var file = fileInput.files && fileInput.files[0];
+      if (!file) { alert("ପ୍ରଥମେ ଏକ ଫଟୋ ବାଛନ୍ତୁ!"); return; }
+
+      var key = getImgbbKey();
+      if (!key) {
+        alert("⚙️ ପ୍ରଥମେ Sheets ଟ୍ୟାବ୍ ରେ ImgBB API Key ସେଟ୍ କରନ୍ତୁ।\n(ଫ୍ରି key: https://api.imgbb.com/)");
+        switchAdminTab('sync');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> Uploading...';
+      try {
+        var url = await uploadToImgBB(file, key);
+        if (url) {
+          document.getElementById('imgLinkOutput').value = url;
+          document.getElementById('imgLinkPreview').src = url;
+          document.getElementById('imgLinkResult').classList.remove('hidden');
+        } else {
+          alert("❌ ଅପଲୋଡ୍ ବିଫଳ ହେଲା। ImgBB Key ଠିକ୍ ଅଛି କି ଯାଞ୍ଚ କରନ୍ତୁ।");
+        }
+      } catch (e) {
+        alert("❌ ତ୍ରୁଟି: " + e.message);
+      }
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ph-bold ph-link-simple"></i> Generate Link';
+    }
+
+    function uploadToImgBB(file, key) {
+      return new Promise(function (resolve) {
+        var reader = new FileReader();
+        reader.onload = function () {
+          var base64 = String(reader.result).split(',')[1];
+          var body = new FormData();
+          body.append('image', base64);
+          fetch('https://api.imgbb.com/1/upload?key=' + encodeURIComponent(key), {
+            method: 'POST', body: body
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              resolve(d && d.data && d.data.url ? d.data.url : '');
+            })
+            .catch(function () { resolve(''); });
+        };
+        reader.onerror = function () { resolve(''); };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function copyImgLink() {
+      var out = document.getElementById('imgLinkOutput');
+      out.select();
+      out.setSelectionRange(0, 99999);
+      try {
+        document.execCommand('copy');
+        alert("✅ ଲିଙ୍କ୍ କପି ହେଲା!");
+      } catch (e) {
+        if (navigator.clipboard) navigator.clipboard.writeText(out.value);
+      }
+    }
+
+    function useImgLinkForBanner() {
+      var url = document.getElementById('imgLinkOutput').value.trim();
+      if (!url) return;
+      document.getElementById('newBannerImg').value = url;
+      updateImagePreview(url);
+      switchAdminTab('banners');
+      document.getElementById('newBannerTitle').focus();
     }
 
     // --- JIOMART & WEB SMART PRODUCT SEARCH ---
@@ -1372,21 +1553,54 @@
       document.getElementById('cancelEditBtn').classList.add('hidden');
     }
 
+    function clearDbSearch() {
+      document.getElementById('dbSearchInput').value = '';
+      renderAdminList();
+    }
+
     function renderAdminList() {
       var box = document.getElementById('adminInventoryList');
-      box.innerHTML = window.STORE_CATALOG.map((p, idx) => `
+      var searchEl = document.getElementById('dbSearchInput');
+      var clearBtn = document.getElementById('dbSearchClearBtn');
+      var q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+      if (clearBtn) clearBtn.classList.toggle('hidden', !q);
+
+      // Database search: filter by product name / category / EAN (case-insensitive)
+      var items = window.STORE_CATALOG;
+      if (q) {
+        items = items.filter(function (p) {
+          var nm = String(p.product_name || '').toLowerCase();
+          var cat = String(p.category || '').toLowerCase();
+          var ean = String(p.ean || '').toLowerCase();
+          return nm.indexOf(q) >= 0 || cat.indexOf(q) >= 0 || ean.indexOf(q) >= 0;
+        });
+      }
+
+      if (!items.length) {
+        box.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">' +
+          (q ? '🔍 "' + q + '" ପାଇଁ କିଛି ମିଳିଲା ନାହିଁ।' : 'କୌଣସି ପ୍ରୋଡକ୍ଟ ନାହିଁ।') + '</p>';
+        document.getElementById('adminTotalItems').innerText =
+          q ? items.length + ' / ' + window.STORE_CATALOG.length + ' Items' : window.STORE_CATALOG.length + ' Items';
+        return;
+      }
+
+      box.innerHTML = items.map((p) => {
+        var realIdx = window.STORE_CATALOG.indexOf(p);
+        return `
         <div class="flex items-center justify-between p-2 bg-white rounded-xl border border-slate-200 text-xs">
           <div>
             <h5 class="font-bold text-slate-800">${p.product_name}</h5>
             <span class="text-[10px] text-slate-500">Rs.${p.selling_price} | Stock: ${p.stock_qty||10}</span>
           </div>
           <div class="flex gap-1">
-            <button onclick="editAdminProduct(${idx})" class="px-2 py-1 bg-amber-500 text-white rounded font-bold text-[10px]">Edit</button>
-            <button onclick="deleteAdminProduct(${idx})" class="px-2 py-1 bg-rose-50 text-rose-600 rounded font-bold text-[10px]">Delete</button>
+            <button onclick="editAdminProduct(${realIdx})" class="px-2 py-1 bg-amber-500 text-white rounded font-bold text-[10px]">Edit</button>
+            <button onclick="deleteAdminProduct(${realIdx})" class="px-2 py-1 bg-rose-50 text-rose-600 rounded font-bold text-[10px]">Delete</button>
           </div>
         </div>
-      `).join('');
-      document.getElementById('adminTotalItems').innerText = `${window.STORE_CATALOG.length} Items`;
+      `;
+      }).join('');
+      document.getElementById('adminTotalItems').innerText =
+        q ? items.length + ' / ' + window.STORE_CATALOG.length + ' Items' : window.STORE_CATALOG.length + ' Items';
     }
 
     function editAdminProduct(idx) {
