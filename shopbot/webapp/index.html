@@ -533,6 +533,10 @@
 
           <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-2">
             <h4 class="text-xs font-black text-slate-700">📢 ୫-ସ୍ଲାଇଡ୍ ପ୍ରମୋସନ୍ ବ୍ୟାନର୍ ମ୍ୟାନେଜର୍</h4>
+            <div class="bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+              <span class="text-[10px] font-bold text-emerald-800">Shared — ଆପଣ ଯୋଡ଼ିଲେ ସମସ୍ତ ଗ୍ରାହକଙ୍କ ଫୋନ୍ ରେ ଦେଖାଯିବ</span>
+            </div>
             <input type="text" id="newBannerImg" placeholder="Image URL (https://...) — ଉପରର Generator ରୁ ପାଇପାରିବେ" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none">
             <input type="text" id="newBannerTitle" placeholder="Banner Title / Offer Text" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none">
             <button onclick="addBanner()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg">+ Add Banner</button>
@@ -1247,18 +1251,28 @@
       var title = document.getElementById('newBannerTitle').value.trim();
       if (!img || !title) { alert("Image URL ଓ Title ଦିଅନ୍ତୁ!"); return; }
       banners.push({ id: Date.now(), title, img });
-      localStorage.setItem('SHOP_BANNERS', JSON.stringify(banners));
+      try { localStorage.setItem('SHOP_BANNERS', JSON.stringify(banners)); } catch (e) {}
+      pushBannersToSheet(); // admin set -> shared Sheet -> ALL customers see it
       initCarousel();
       renderAdminBanners();
       document.getElementById('newBannerImg').value = '';
       document.getElementById('newBannerTitle').value = '';
+      alert("✅ ବ୍ୟାନର୍ ଯୋଡ଼ାଗଲା — ଏବେ ସମସ୍ତ ଗ୍ରାହକ ଦେଖିବେ!");
     }
 
     function deleteBanner(idx) {
       banners.splice(idx, 1);
-      localStorage.setItem('SHOP_BANNERS', JSON.stringify(banners));
+      try { localStorage.setItem('SHOP_BANNERS', JSON.stringify(banners)); } catch (e) {}
+      pushBannersToSheet(); // keep the shared Sheet in sync for ALL customers
       initCarousel();
       renderAdminBanners();
+    }
+
+    // --- ALL ADMIN CHANGES -> SHARED SHEET (every customer sees them) ---
+    // Catalog add/edit/delete already post ADD_PRODUCT/EDIT_PRODUCT. This is
+    // the generic helper for anything else the admin sets once for everyone.
+    function pushAdminChange(key, value) {
+      pushConfigToSheet(key, value);
     }
 
     // --- IMAGE LINK GENERATOR (upload -> public URL via ImgBB) ---
@@ -1842,6 +1856,39 @@
         return true;
       } catch (e) { return false; }
     }
+    // --- SHARED ADMIN SETTINGS (Config tab) ---
+    // Admin sets once -> EVERY customer sees it. Banners live here now
+    // (Sheet wins; localStorage is only an offline cache).
+    function pushConfigToSheet(key, value) {
+      if (!key) return;
+      postToSheet({ action: 'SAVE_CONFIG', key: key, value: value });
+    }
+    async function syncBannersFromSheet() {
+      var url = sheetHookUrl('action=GET_CONFIG');
+      if (!url) return false;
+      try {
+        var res = await fetch(url);
+        var data = await res.json();
+        var cfg = (data && data.config) || {};
+        if (cfg.banners) {
+          var shared = [];
+          try { shared = JSON.parse(cfg.banners) || []; } catch (e) { shared = []; }
+          if (Array.isArray(shared) && shared.length) {
+            banners = shared.slice(0, 5);
+            try { localStorage.setItem('SHOP_BANNERS', JSON.stringify(banners)); } catch (e) {}
+            initCarousel();
+            var ad = document.getElementById('adminDashboard');
+            if (ad && !ad.classList.contains('hidden')) renderAdminBanners();
+            return true;
+          }
+        }
+      } catch (e) {}
+      return false;
+    }
+    function pushBannersToSheet() {
+      pushConfigToSheet('banners', JSON.stringify(banners.slice(0, 5)));
+    }
+
     // Pull the customer's saved address from the bot (bot checkout / SAVE_ADDRESS).
     async function syncAddressesFromSheet() {
       var u = getTgUser();
@@ -1986,6 +2033,10 @@
       updateCartBadge();
       // Fetch + render live inventory (localStorage webhook or DEFAULT_SHEET_WEBHOOK).
       syncFromGoogleSheet();
+      // Admin-set offer banners are shared: Sheet first (ALL customers see the
+      // same banners), local cache only until the Sheet answers.
+      syncBannersFromSheet();
+      setInterval(function () { syncBannersFromSheet(); }, 120000);
       // Shared-database sync: Telegram (bot) orders + saved addresses, then
       // keep refreshing so stage/status changes made in the bot show up here.
       syncOrdersFromSheet();

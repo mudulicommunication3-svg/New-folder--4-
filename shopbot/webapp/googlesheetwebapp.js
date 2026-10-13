@@ -10,9 +10,9 @@
 // Channel: "webapp" (browser), "chat"/"miniapp"/"ai" (Telegram bot)
 // Status: pending | accepted | packing | out_for_delivery | delivered | cancelled
 //
-// doGet  actions: SEARCH_JIOMART | GET_ORDERS | GET_ADDRESSES | (catalog)
+// doGet  actions: SEARCH_JIOMART | GET_ORDERS | GET_ADDRESSES | GET_CONFIG | (catalog)
 // doPost actions: create_order | update_order_status | update_order_bill |
-//                 save_address | EDIT_PRODUCT | ADD_PRODUCT | (legacy)
+//                 save_address | SAVE_CONFIG | EDIT_PRODUCT | ADD_PRODUCT | (legacy)
 // =========================================================================
 
 var ORDER_HEADERS = [
@@ -69,6 +69,13 @@ function doGet(e) {
       status: "success",
       addresses: readAddresses_(ss, params.user_id || "")
     });
+  }
+
+  // ବିକଳ୍ପ C2: Config tab -> ସମସ୍ତ ଗ୍ରାହକଙ୍କ ପାଇଁ shared settings
+  // (offer banners, store name, delivery fee, announcements...) — admin ଥରେ
+  // set କଲେ ପ୍ରତି ଫୋନ୍ ରେ ଦେଖାଯିବ।
+  if (params && params.action === "GET_CONFIG") {
+    return jsonResponse({ status: "success", config: readConfig_(ss) });
   }
 
   // ବିକଳ୍ପ D: Sheet1 ରୁ କାଟାଲଗ୍ ପଢ଼ିବା
@@ -208,6 +215,12 @@ function ensureSheet_(ss, name, headers) {
   var sh = ss.getSheetByName(name);
   if (!sh) {
     sh = ss.insertSheet(name);
+
+    // ବିକଳ୍ପ 7: Shared config (Config tab) — admin ଥରେ set କଲେ ସମସ୍ତ
+    // ଗ୍ରାହକଙ୍କ ଫୋନ୍ ରେ ଦେଖାଯିବ (offer banners, store name ଇତ୍ୟାଦି)।
+    if (data.action === "SAVE_CONFIG") {
+      return jsonResponse(saveConfig_(ss, data.key || "", data.value || ""));
+    }
   }
   if (sh.getMaxColumns() < headers.length) {
     sh.insertColumnsAfter(sh.getMaxColumns(), headers.length - sh.getMaxColumns());
@@ -441,6 +454,49 @@ function fetchJioMartByPin(query, pin) {
       "country_iso_code": "IN",
       "pincode": targetPin
     });
+
+// =========================================================================
+// ଘ. Shared Config (Config tab: Key | Value) — admin ଥରେ set କଲେ ସମସ୍ତ
+// ଗ୍ରାହକଙ୍କ ଫୋନ୍ ରେ ଦେଖାଯିବ (offer banners, store name, delivery fee...)
+// =========================================================================
+var CONFIG_SHEET = "Config";
+var CONFIG_HEADERS = ["Key", "Value"];
+
+function readConfig_(ss) {
+  var sh = getOrCreateSheet_(ss, CONFIG_SHEET, CONFIG_HEADERS);
+  ensureHeaders_(sh, CONFIG_HEADERS);
+  var rows = [];
+  try {
+    rows = sh.getDataRange().getValues();
+  } catch (e) {
+    return {};
+  }
+  var out = {};
+  for (var i = 1; i < rows.length; i++) {
+    var k = String(rows[i][0] || "").trim();
+    if (!k) continue;
+    out[k] = String(rows[i][1] === undefined || rows[i][1] === null ? "" : rows[i][1]);
+  }
+  return out;
+}
+
+function saveConfig_(ss, key, value) {
+  key = String(key || "").trim();
+  if (!key) {
+    return { status: "error", message: "config key required" };
+  }
+  var sh = getOrCreateSheet_(ss, CONFIG_SHEET, CONFIG_HEADERS);
+  ensureHeaders_(sh, CONFIG_HEADERS);
+  var rows = sh.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0] || "").trim() === key) {
+      sh.getRange(i + 1, 1, 1, 2).setValues([[key, String(value === undefined || value === null ? "" : value)]]);
+      return { status: "success", key: key };
+    }
+  }
+  sh.appendRow([key, String(value === undefined || value === null ? "" : value)]);
+  return { status: "success", key: key };
+}
 
     var headers = {
       "User-Agent": "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36",
