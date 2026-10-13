@@ -199,6 +199,12 @@ function doPost(e) {
       return jsonResponse(writeNewOrder_(ss, data));
     }
 
+    // Shared config (Config tab): admin sets ONCE -> every customer sees it
+    // (offer banners, store name, delivery fee, notices...).
+    if (data.action === "SAVE_CONFIG") {
+      return jsonResponse(saveConfig_(ss, data.key || "", data.value || ""));
+    }
+
     return jsonResponse({ status: "error", error: "Nothing matched" });
   } catch (err) {
     return jsonResponse({ status: "error", error: err.toString() });
@@ -215,12 +221,6 @@ function ensureSheet_(ss, name, headers) {
   var sh = ss.getSheetByName(name);
   if (!sh) {
     sh = ss.insertSheet(name);
-
-    // ବିକଳ୍ପ 7: Shared config (Config tab) — admin ଥରେ set କଲେ ସମସ୍ତ
-    // ଗ୍ରାହକଙ୍କ ଫୋନ୍ ରେ ଦେଖାଯିବ (offer banners, store name ଇତ୍ୟାଦି)।
-    if (data.action === "SAVE_CONFIG") {
-      return jsonResponse(saveConfig_(ss, data.key || "", data.value || ""));
-    }
   }
   if (sh.getMaxColumns() < headers.length) {
     sh.insertColumnsAfter(sh.getMaxColumns(), headers.length - sh.getMaxColumns());
@@ -456,47 +456,6 @@ function fetchJioMartByPin(query, pin) {
     });
 
 // =========================================================================
-// ଘ. Shared Config (Config tab: Key | Value) — admin ଥରେ set କଲେ ସମସ୍ତ
-// ଗ୍ରାହକଙ୍କ ଫୋନ୍ ରେ ଦେଖାଯିବ (offer banners, store name, delivery fee...)
-// =========================================================================
-var CONFIG_SHEET = "Config";
-var CONFIG_HEADERS = ["Key", "Value"];
-
-function readConfig_(ss) {
-  var sh = getOrCreateSheet_(ss, CONFIG_SHEET, CONFIG_HEADERS);
-  ensureHeaders_(sh, CONFIG_HEADERS);
-  var rows = [];
-  try {
-    rows = sh.getDataRange().getValues();
-  } catch (e) {
-    return {};
-  }
-  var out = {};
-  for (var i = 1; i < rows.length; i++) {
-    var k = String(rows[i][0] || "").trim();
-    if (!k) continue;
-    out[k] = String(rows[i][1] === undefined || rows[i][1] === null ? "" : rows[i][1]);
-  }
-  return out;
-}
-
-function saveConfig_(ss, key, value) {
-  key = String(key || "").trim();
-  if (!key) {
-    return { status: "error", message: "config key required" };
-  }
-  var sh = getOrCreateSheet_(ss, CONFIG_SHEET, CONFIG_HEADERS);
-  ensureHeaders_(sh, CONFIG_HEADERS);
-  var rows = sh.getDataRange().getValues();
-  for (var i = 1; i < rows.length; i++) {
-    if (String(rows[i][0] || "").trim() === key) {
-      sh.getRange(i + 1, 1, 1, 2).setValues([[key, String(value === undefined || value === null ? "" : value)]]);
-      return { status: "success", key: key };
-    }
-  }
-  sh.appendRow([key, String(value === undefined || value === null ? "" : value)]);
-  return { status: "success", key: key };
-}
 
     var headers = {
       "User-Agent": "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36",
@@ -571,3 +530,42 @@ function saveConfig_(ss, key, value) {
   return results;
 }
 
+// ଘ. Shared Config (Config tab: Key | Value) — admin ଥରେ set କଲେ ସମସ୍ତ
+// ଗ୍ରାହକଙ୍କ ଫୋନ୍ ରେ ଦେଖାଯିବ (offer banners, store name, delivery fee...)
+// =========================================================================
+var CONFIG_SHEET = "Config";
+var CONFIG_HEADERS = ["Key", "Value"];
+
+function readConfig_(ss) {
+  var sh = ensureSheet_(ss, CONFIG_SHEET, CONFIG_HEADERS);
+  var rows = [];
+  try {
+    rows = sh.getDataRange().getValues();
+  } catch (e) {
+    return {};
+  }
+  var out = {};
+  for (var i = 1; i < rows.length; i++) {
+    var k = String(rows[i][0] || "").trim();
+    if (!k) continue;
+    out[k] = String(rows[i][1] === undefined || rows[i][1] === null ? "" : rows[i][1]);
+  }
+  return out;
+}
+
+function saveConfig_(ss, key, value) {
+  key = String(key || "").trim();
+  if (!key) {
+    return { status: "error", message: "config key required" };
+  }
+  var sh = ensureSheet_(ss, CONFIG_SHEET, CONFIG_HEADERS);
+  var rows = sh.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0] || "").trim() === key) {
+      sh.getRange(i + 1, 1, 1, 2).setValues([[key, String(value === undefined || value === null ? "" : value)]]);
+      return { status: "success", key: key };
+    }
+  }
+  sh.appendRow([key, String(value === undefined || value === null ? "" : value)]);
+  return { status: "success", key: key };
+}
