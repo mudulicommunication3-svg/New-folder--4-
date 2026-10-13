@@ -408,6 +408,14 @@
         <button onclick="switchAdminTab('settings')" id="admTabBtn-settings" class="flex-1 py-2.5 text-center border-b-2 border-transparent">🛒 Shop</button>
       </div>
 
+      <!-- MASTER SAVE BAR — pushes EVERYTHING (trending + banners + settings) to the shared Google Sheet -->
+      <div class="bg-amber-50 border-b border-amber-200 px-3.5 py-2 flex items-center justify-between sticky top-[84px] z-20">
+        <span class="text-[10px] font-black text-amber-800 leading-tight">📤 ପରିବର୍ତ୍ତନ ଶେଷରେ ସେଭ୍ କରନ୍ତୁ</span>
+        <button onclick="saveAllToSheet()" id="saveAllBtn" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black rounded-lg flex items-center gap-1 shadow-xs">
+          <i class="ph-bold ph-floppy-disk"></i> 💾 Save All to Sheet
+        </button>
+      </div>
+
       <div class="p-3.5 space-y-3 flex-1">
         <!-- Tab 1: Orders (5-Stage Fulfillment & Live Item Editing) -->
         <div id="admTab-orders" class="space-y-3">
@@ -1562,9 +1570,47 @@
       ok = pushConfigToSheet('coupon_code', shopConfig.couponCode) && ok;
       ok = pushConfigToSheet('coupon_percent', shopConfig.couponPercent) && ok;
       ok = pushConfigToSheet('coupon_min_bill', shopConfig.couponMinBill) && ok;
+      // ALSO push the trending list so the same button saves EVERYTHING.
+      ok = pushConfigToSheet('trending', (shopConfig.trending || []).join(',')) && ok;
       updateBillingSummary();
-      alert(ok ? '✅ ସେଟିଂସ୍ ସେଭ୍ ହେଲା — ସମସ୍ତ ଗ୍ରାହକଙ୍କ ଫୋନ୍ ରେ ଲାଗୁ!'
+      renderTrending();
+      alert(ok ? '✅ ସବୁ ସେଟିଂସ୍ ସେଭ୍ ହେଲା — ସମସ୍ତ ଗ୍ରାହକଙ୍କ ଫୋନ୍ ରେ ଲାଗୁ!'
                : '⚠️ ଏହି ଫୋନ୍ ରେ ସେଭ୍ ହେଲା, କିନ୍ତୁ Sheet ରେ ପହଞ୍ଚିଲା ନାହିଁ (Apps Script ନୂଆ version Deploy କରନ୍ତୁ)।');
+    }
+
+    // 💾 MASTER SAVE — pushes EVERY admin change (settings + trending + banners)
+    // to the shared Google Sheet so ALL customer phones update.
+    async function saveAllToSheet() {
+      // 1) Re-read the Shop Settings inputs so unsaved edits are included.
+      try {
+        shopConfig.deliveryFee = Math.max(0, parseFloat((document.getElementById('setDeliveryFee') || {}).value) || shopConfig.deliveryFee);
+        shopConfig.freeAbove = Math.max(0, parseFloat((document.getElementById('setFreeAbove') || {}).value) || shopConfig.freeAbove);
+        var cc = ((document.getElementById('setCouponCode') || {}).value || '').trim().toUpperCase();
+        if (cc) shopConfig.couponCode = cc;
+        var cp = parseFloat((document.getElementById('setCouponPercent') || {}).value);
+        if (!isNaN(cp)) shopConfig.couponPercent = Math.min(100, Math.max(0, cp));
+        var cmb = parseFloat((document.getElementById('setCouponMinBill') || {}).value);
+        if (!isNaN(cmb)) shopConfig.couponMinBill = Math.max(0, cmb);
+      } catch (e) {}
+      cacheShopConfig_();
+      updateBillingSummary();
+
+      var btn = document.getElementById('saveAllBtn');
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> Saving…'; }
+
+      var ok = true;
+      ok = pushConfigToSheet('delivery_fee', shopConfig.deliveryFee) && ok;
+      ok = pushConfigToSheet('free_delivery_above', shopConfig.freeAbove) && ok;
+      ok = pushConfigToSheet('coupon_code', shopConfig.couponCode) && ok;
+      ok = pushConfigToSheet('coupon_percent', shopConfig.couponPercent) && ok;
+      ok = pushConfigToSheet('coupon_min_bill', shopConfig.couponMinBill) && ok;
+      ok = pushConfigToSheet('trending', (shopConfig.trending || []).join(',')) && ok;
+      // Banners too (if any) so the carousel also syncs.
+      try { ok = pushBannersToSheet() && ok; } catch (e) {}
+
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph-bold ph-floppy-disk"></i> 💾 Save All to Sheet'; }
+      alert(ok ? '✅ ସବୁ ପରିବର୍ତ୍ତନ Google Sheet ରେ ସେଭ୍ ହେଲା!\n🔥 Trending · 🚚 ଡେଲିଭରୀ · 🎟️ କୁପନ୍ · 📢 Banners — ସମସ୍ତ ଗ୍ରାହକ ଫୋନ୍ ରେ ୨ ମିନିଟ୍ ମଧ୍ୟରେ ଲାଗୁ!'
+               : '⚠️ ସେଭ୍ ହେଲା କିନ୍ତୁ Sheet ରେ ପହଞ୍ଚିଲା ନାହିଁ — Apps Script ନୂଆ version Deploy କରନ୍ତୁ।');
     }
 
     // 🔥 Trending Offers strip on the home page (admin toggles per product).
@@ -1601,9 +1647,11 @@
       var i = shopConfig.trending.indexOf(ean);
       if (i >= 0) shopConfig.trending.splice(i, 1); else shopConfig.trending.push(ean);
       cacheShopConfig_();
-      pushConfigToSheet('trending', shopConfig.trending.join(',')); // -> all phones
       renderTrending();
       renderAdminList();
+      // Do NOT auto-push here — the master 💾 Save All to Sheet button (or the
+      // Shop-tab Save button) pushes the trending list to the shared Sheet so
+      // every customer phone updates. This avoids a dozen silent POSTs.
     }
 
     // 📊 Stock counting engine: auto low-stock (<=5) / out-of-stock report.
@@ -2278,6 +2326,10 @@
         var res = await fetch(url);
         var data = await res.json();
         var cfg = (data && data.config) || {};
+        // ALWAYS apply shop settings + trending BEFORE banners, so the
+        // trending strip / delivery / coupon update on EVERY poll.
+        applyShopConfig_(cfg);
+        cacheShopConfig_();
         if (cfg.banners) {
           var shared = [];
           try { shared = JSON.parse(cfg.banners) || []; } catch (e) { shared = []; }
@@ -2295,9 +2347,6 @@
             return true;
           }
         }
-        // Shop settings + trending offers: Sheet -> local config cache + UI.
-        applyShopConfig_(cfg);
-        cacheShopConfig_();
       } catch (e) {}
       return false;
     }
