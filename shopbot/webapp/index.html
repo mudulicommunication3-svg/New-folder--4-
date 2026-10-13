@@ -611,10 +611,17 @@
       { id: 2, title: "ମୋବାଇଲ୍ ବ୍ୟାକ୍ କଭର୍ ଓ UV ଗ୍ଲାସ୍ ଫ୍ଲାଟ୍ ୫୦% ରିହାତି", img: "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=700" },
       { id: 3, title: "ଫ୍ରିଡମ୍ ସନଫ୍ଲାୱାର୍ ତେଲ ସ୍ପେଶାଲ୍ ଡିଲ୍", img: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=700" }
     ];
-    // Start EMPTY: the shared Sheet (admin's banners) fills this in. The old
-    // localStorage cache is IGNORED on load so stale default banners can never
-    // shadow the admin's shared banners (see syncBannersFromSheet).
+    // Start with the ADMIN-SET cache when this device ever saved banners
+    // (flag SHOP_BANNERS_ADMIN) so a refresh never blanks the carousel.
+    // Devices that only ever saw the old defaults start EMPTY and wait for
+    // the shared Sheet (see syncBannersFromSheet).
     let banners = [];
+    try {
+      if (localStorage.getItem('SHOP_BANNERS_ADMIN') === '1') {
+        banners = JSON.parse(localStorage.getItem('SHOP_BANNERS') || '[]') || [];
+        if (!Array.isArray(banners)) banners = [];
+      }
+    } catch (e) { banners = []; }
     let currentBannerIdx = 0;
     let bannerInterval = null;
 
@@ -1265,8 +1272,18 @@
       var title = document.getElementById('newBannerTitle').value.trim();
       if (!img || !title) { alert("Image URL ଓ Title ଦିଅନ୍ତୁ!"); return; }
       banners.push({ id: Date.now(), title, img });
-      try { localStorage.setItem('SHOP_BANNERS', JSON.stringify(banners)); } catch (e) {}
-      pushBannersToSheet(); // admin set -> shared Sheet -> ALL customers see it
+      try {
+        localStorage.setItem('SHOP_BANNERS', JSON.stringify(banners));
+        localStorage.setItem('SHOP_BANNERS_ADMIN', '1'); // this device set banners
+      } catch (e) {}
+      if (!pushBannersToSheet()) { // Sheet save failed -> warn (refresh-safe anyway)
+        alert("⚠️ ବ୍ୟାନର୍ ଏହି ଫୋନ୍ ରେ ସେଭ୍ ହେଲା, କିନ୍ତୁ Sheet ରେ ପହଞ୍ଚିଲା ନାହିଁ!\nApps Script ନୂଆ version Deploy କରନ୍ତୁ (SAVE_CONFIG ଦରକାର)।");
+        initCarousel();
+        renderAdminBanners();
+        document.getElementById('newBannerImg').value = '';
+        document.getElementById('newBannerTitle').value = '';
+        return;
+      }
       initCarousel();
       renderAdminBanners();
       document.getElementById('newBannerImg').value = '';
@@ -1276,7 +1293,10 @@
 
     function deleteBanner(idx) {
       banners.splice(idx, 1);
-      try { localStorage.setItem('SHOP_BANNERS', JSON.stringify(banners)); } catch (e) {}
+      try {
+        localStorage.setItem('SHOP_BANNERS', JSON.stringify(banners));
+        localStorage.setItem('SHOP_BANNERS_ADMIN', '1');
+      } catch (e) {}
       pushBannersToSheet(); // keep the shared Sheet in sync for ALL customers
       initCarousel();
       renderAdminBanners();
@@ -1874,8 +1894,20 @@
     // Admin sets once -> EVERY customer sees it. Banners live here now
     // (Sheet wins; localStorage is only an offline cache).
     function pushConfigToSheet(key, value) {
-      if (!key) return;
-      postToSheet({ action: 'SAVE_CONFIG', key: key, value: value });
+      // Returns false when no webhook is configured, so callers can warn.
+      if (!key) return false;
+      var hook = (localStorage.getItem('munna_sheet_webhook') || '').trim()
+        || (typeof DEFAULT_SHEET_WEBHOOK !== 'undefined' ? DEFAULT_SHEET_WEBHOOK : '');
+      if (!hook) return false;
+      try {
+        fetch(hook, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'SAVE_CONFIG', key: key, value: value })
+        });
+        return true;
+      } catch (e) { return false; }
     }
     async function syncBannersFromSheet() {
       var url = sheetHookUrl('action=GET_CONFIG');
@@ -1905,7 +1937,8 @@
       return false;
     }
     function pushBannersToSheet() {
-      pushConfigToSheet('banners', JSON.stringify(banners.slice(0, 5)));
+      // True = POST queued to the Sheet; false = no webhook (caller warns).
+      return pushConfigToSheet('banners', JSON.stringify(banners.slice(0, 5))) !== false;
     }
 
     // Pull the customer's saved address from the bot (bot checkout / SAVE_ADDRESS).
