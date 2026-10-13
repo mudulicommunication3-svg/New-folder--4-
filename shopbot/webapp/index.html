@@ -832,6 +832,22 @@
       });
     }
 
+    function cacheCart_() {
+      try { localStorage.setItem(uidKey('munna_cart'), JSON.stringify({ items: cart, coupon: appliedCoupon || '' })); } catch (e) {}
+    }
+    function loadCart_() {
+      try {
+        var c = JSON.parse(localStorage.getItem(uidKey('munna_cart')) || 'null');
+        if (c) {
+          if (c.items && typeof c.items === 'object') cart = c.items;
+          else if (typeof c === 'object' && !Array.isArray(c)) cart = c; // legacy plain {ean:qty}
+          if (typeof c.coupon === 'string') appliedCoupon = c.coupon;
+        }
+      } catch (e) {}
+    }
+    function clearCartCache_() {
+      try { localStorage.removeItem(uidKey('munna_cart')); } catch (e) {}
+    }
     function setQty(ean, qty) {
       qty = Math.max(0, Math.min(99, qty | 0));
       // Stock engine: never allow more than the available stock in the cart.
@@ -846,6 +862,7 @@
         }
       }
       if (qty <= 0) delete cart[ean]; else cart[ean] = qty;
+      cacheCart_();
       render();
       renderCartDrawer();
     }
@@ -1108,6 +1125,7 @@
         return;
       }
       appliedCoupon = code;
+      cacheCart_();
       renderCartDrawer();
       alert('✅ Coupon ଲାଗିଗଲା! Rs.' + money(cartBilling().discount) + ' ଛାଡ଼ ମିଳିଲା।');
     }
@@ -1213,6 +1231,7 @@
 
       cart = {};
       appliedCoupon = '';
+      clearCartCache_();
       render();
       renderBar();
       updateCartBadge();
@@ -1609,8 +1628,34 @@
       try { ok = pushBannersToSheet() && ok; } catch (e) {}
 
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph-bold ph-floppy-disk"></i> 💾 Save All to Sheet'; }
-      alert(ok ? '✅ ସବୁ ପରିବର୍ତ୍ତନ Google Sheet ରେ ସେଭ୍ ହେଲା!\n🔥 Trending · 🚚 ଡେଲିଭରୀ · 🎟️ କୁପନ୍ · 📢 Banners — ସମସ୍ତ ଗ୍ରାହକ ଫୋନ୍ ରେ ୨ ମିନିଟ୍ ମଧ୍ୟରେ ଲାଗୁ!'
-               : '⚠️ ସେଭ୍ ହେଲା କିନ୍ତୁ Sheet ରେ ପହଞ୍ଚିଲା ନାହିଁ — Apps Script ନୂଆ version Deploy କରନ୍ତୁ।');
+      if (!ok) {
+        alert('⚠️ ସେଭ୍ ହେଲା କିନ୍ତୁ Sheet ରେ ପହଞ୍ଚିଲା ନାହିଁ — Apps Script ନୂଆ version Deploy କରନ୍ତୁ।');
+        return;
+      }
+      // ✅ Verify: re-fetch the Sheet config and confirm OUR values landed.
+      // (no-cors POST can't return a response, so this read-back is the proof.)
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> Verifying…'; }
+      try {
+        await new Promise(function (r) { setTimeout(r, 2500); }); // let Apps Script write
+        var vurl = sheetHookUrl('action=GET_CONFIG&_=' + Date.now());
+        if (vurl) {
+          var vres = await fetch(vurl);
+          var vdata = await vres.json();
+          var vcfg = (vdata && vdata.config) || {};
+          var wantTrend = (shopConfig.trending || []).join(',');
+          var gotTrend = String(vcfg.trending || '').trim();
+          var wantFee = String(shopConfig.deliveryFee);
+          var gotFee = (vcfg.delivery_fee !== undefined && vcfg.delivery_fee !== null) ? String(vcfg.delivery_fee) : '';
+          if (gotTrend === wantTrend && (wantFee === '' || gotFee === wantFee)) {
+            applyShopConfig_(vcfg); cacheShopConfig_();
+            alert('✅ ଯାଞ୍ଚ ହୋଇଗଲା — Sheet ରେ ସେଭ୍ ଅଛି!\n🔥 Trending · 🚚 ଡେଲିଭରୀ · 🎟️ କୁପନ୍ · 📢 Banners — ସମସ୍ତ ଗ୍ରାହକ ଫୋନ୍ ରେ ୨ ମିନିଟ୍ ମଧ୍ୟରେ ଦେଖାଯିବ!');
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph-bold ph-floppy-disk"></i> 💾 Save All to Sheet'; }
+            return;
+          }
+        }
+      } catch (e) {}
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph-bold ph-floppy-disk"></i> 💾 Save All to Sheet'; }
+      alert('📤 ପଠାଗଲା, କିନ୍ତୁ Sheet ଯାଞ୍ଚ ହେଲା ନାହିଁ — Config tab ରେ trending row ଅଛି କି ଦେଖନ୍ତୁ।');
     }
 
     // 🔥 Trending Offers strip on the home page (admin toggles per product).
@@ -2493,6 +2538,7 @@
       } catch(e){}
 
       initCarousel();
+      loadCart_(); // restore cart + applied coupon so refresh never empties it
       render();
       prefillOrderForm();
       renderProfile();
@@ -2502,7 +2548,7 @@
       // Admin-set offer banners are shared: Sheet first (ALL customers see the
       // same banners), local cache only until the Sheet answers.
       syncBannersFromSheet();
-      setInterval(function () { syncBannersFromSheet(); }, 120000);
+      setInterval(function () { syncBannersFromSheet(); syncFromGoogleSheet(); }, 120000);
       // Shared-database sync: Telegram (bot) orders + saved addresses, then
       // keep refreshing so stage/status changes made in the bot show up here.
       syncOrdersFromSheet();
