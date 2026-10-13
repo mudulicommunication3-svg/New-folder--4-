@@ -8,3 +8,8 @@
   base = "shopbot"
   publish = "webapp"
   command = ""
+
+# Serverless function used by the Mini App admin panel for LIVE JioMart
+# product search (same server-side approach as the bot's jiomart_search.py).
+[functions]
+  directory = "netlify/functions"

@@ -1178,6 +1178,23 @@
     }
 
     // --- JioMart search backends (same headers/parsing as jiomart_search_proxy.py) ---
+    // 0) Netlify Function: /.netlify/functions/jiomart-search calls JioMart
+    //    SERVER-SIDE with the pincode headers a browser cannot send (CORS).
+    //    Same-origin relative URL, so it works from the Mini App with no setup.
+    async function searchJioMartViaNetlify(q, pin) {
+      try {
+        var url = '/.netlify/functions/jiomart-search?q=' + encodeURIComponent(q) + '&pincode=' + encodeURIComponent(pin);
+        var ctrl = new AbortController();
+        var timer = setTimeout(function() { ctrl.abort(); }, 15000);
+        var res = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(timer);
+        var data = await res.json();
+        if (data && data.status === 'success' && Array.isArray(data.items) && data.items.length) {
+          return data.items.filter(function (it) { return it && it.url; });
+        }
+      } catch (e) {}
+      return null;
+    }
     // 1) Apps Script webhook: UrlFetchApp calls JioMart SERVER-SIDE with the
     //    full header set, so CORS and JioMart's browser bot-blocking never
     //    apply. This is the same code path that works when you run
@@ -1246,8 +1263,14 @@
 
       // Try every backend in order until one returns products.
       var results = [], sourceUsed = '';
+      // 0) Netlify Function (same server-side approach as the bot's
+      //    jiomart_search.py - the Netlify server calls JioMart with the
+      //    pincode headers a browser cannot send). Same-origin, so it works
+      //    from the Mini App with NO webhook/proxy setup.
+      var viaFn = await searchJioMartViaNetlify(q, pin);
+      if (viaFn && viaFn.length) { results = viaFn; sourceUsed = 'Netlify'; }
       var viaHook = await searchJioMartViaHook(q, pin);
-      if (viaHook && viaHook.length) { results = viaHook; sourceUsed = 'Apps Script'; }
+      if (!results.length && viaHook && viaHook.length) { results = viaHook; sourceUsed = 'Apps Script'; }
       if (!results.length) {
         var viaProxy = await searchJioMartViaProxy(q, pin);
         if (viaProxy && viaProxy.length) { results = viaProxy; sourceUsed = 'Local Proxy'; }
