@@ -527,8 +527,7 @@
               </div>
             </div>
             <p class="text-[9px] text-slate-400 leading-snug">
-              ⚙️ କାମ କରିବା ପାଇଁ ଥରେ <b>ImgBB API Key</b> ଦିଅନ୍ତୁ → <a href="https://api.imgbb.com/" target="_blank" class="text-[#1864ab] font-bold">api.imgbb.com</a> ରୁ ଫ୍ରି key ନିଅନ୍ତୁ।
-              (କୀ ସେଟ୍ ନ ଥିଲେ ଫଟୋ ସିଧା ଆପଣଙ୍କ ଡିଭାଇସ୍ ରେ ଲୋକାଲ୍ ପ୍ରିଭ୍ୟୁ ଭାବେ ରହିବ।)
+              ✅ ଥରେ ବି ସେଟଅପ୍ ବିନା କାମ କରେ (କୀ built-in ଅଛି)। ନିଜ କୀ ବ୍ୟବହାର କରିବାକୁ ଚାହିଁଲେ → <a href="https://api.imgbb.com/" target="_blank" class="text-[#1864ab] font-bold">api.imgbb.com</a> ରୁ ଫ୍ରି key ନେଇ Admin → Sheets ଟ୍ୟାବ୍ ରେ ସେଭ୍ କରନ୍ତୁ।
             </p>
           </div>
 
@@ -556,12 +555,12 @@
               <button onclick="saveJioMartProxy()" class="px-2.5 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg shrink-0">Save</button>
             </div>
             <p class="text-[10px] text-slate-400 leading-snug">🔍 JioMart search କ୍ରମ: Apps Script Webhook → Local Proxy → AllOrigins। Webhook ରେ SEARCH_JIOMART ପୂର୍ବରୁ ଅଛି ତେଣୁ webhook ସେଟ୍ ଥିଲେ proxy ଦରକାର ନାହିଁ।</p>
-            <label class="text-[11px] font-bold text-slate-700 block pt-1">🖼️ ImgBB API Key (Image Link Generator ପାଇଁ — ଫ୍ରି: api.imgbb.com)</label>
+            <label class="text-[11px] font-bold text-slate-700 block pt-1">🖼️ ImgBB API Key (built-in କୀ ଅଛି — ବଦଳାଇବାକୁ ଚାହିଁଲେ ନୂଆ key ଦିଅନ୍ତୁ)</label>
             <div class="flex gap-1.5">
               <input type="text" id="imgbbKeyInput" placeholder="ImgBB API key ପେଷ୍ଟ କରନ୍ତୁ..." class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none">
               <button onclick="saveImgbbKey()" class="px-2.5 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg shrink-0">Save</button>
             </div>
-            <p class="text-[10px] text-slate-400 leading-snug">📤 ଥରେ key ସେଟ୍ କଲେ Banners ଟ୍ୟାବ୍ ର Image Link Generator ଦ୍ୱାରା ଫଟୋ ଅପଲୋଡ୍ କରି ସିଧା ଲିଙ୍କ୍ ପାଇପାରିବେ।</p>
+            <p class="text-[10px] text-slate-400 leading-snug">📤 built-in କୀ ପୂର୍ବରୁ ସେଟ୍ ଅଛି — Banners ଟ୍ୟାବ୍ ର Image Link Generator ତୁରନ୍ତ କାମ କରିବ।</p>
           </div>
         </div>
       </div>
@@ -586,6 +585,11 @@
     // (Apps Script editor -> Deploy -> Web app -> URL ending in /exec)
     // ====================================================================
     const DEFAULT_SHEET_WEBHOOK = "https://script.google.com/macros/s/AKfycbw9bsU9AR5CPk-PzsLqjzzJ_17J8B6p34TvNAR0dPnTUMVPW7ja3ZfYEv1oTjUHKqKt/exec";
+
+    // ImgBB API key - powers the Banners-tab Image Link Generator on every
+    // device with no setup. Resolution order: localStorage override (Admin ->
+    // Sheets tab) wins, otherwise this built-in default is used.
+    const DEFAULT_IMGBB_KEY = "7608fb749170c4dd32e74a62823d776b";
 
     let customerLat = STORE_LAT;
     let customerLng = STORE_LNG;
@@ -1265,7 +1269,8 @@
     }
 
     function getImgbbKey() {
-      return (localStorage.getItem('munna_imgbb_key') || '').trim();
+      // Saved override first, otherwise the built-in default key.
+      return (localStorage.getItem('munna_imgbb_key') || '').trim() || DEFAULT_IMGBB_KEY;
     }
 
     async function generateImageLink() {
@@ -1274,7 +1279,7 @@
       var file = fileInput.files && fileInput.files[0];
       if (!file) { alert("ପ୍ରଥମେ ଏକ ଫଟୋ ବାଛନ୍ତୁ!"); return; }
 
-      var key = getImgbbKey();
+      var key = getImgbbKey(); // built-in default key; override via Sheets tab
       if (!key) {
         alert("⚙️ ପ୍ରଥମେ Sheets ଟ୍ୟାବ୍ ରେ ImgBB API Key ସେଟ୍ କରନ୍ତୁ।\n(ଫ୍ରି key: https://api.imgbb.com/)");
         switchAdminTab('sync');
