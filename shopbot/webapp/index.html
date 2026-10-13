@@ -611,7 +611,10 @@
       { id: 2, title: "ମୋବାଇଲ୍ ବ୍ୟାକ୍ କଭର୍ ଓ UV ଗ୍ଲାସ୍ ଫ୍ଲାଟ୍ ୫୦% ରିହାତି", img: "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=700" },
       { id: 3, title: "ଫ୍ରିଡମ୍ ସନଫ୍ଲାୱାର୍ ତେଲ ସ୍ପେଶାଲ୍ ଡିଲ୍", img: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=700" }
     ];
-    let banners = JSON.parse(localStorage.getItem('SHOP_BANNERS')) || defaultBanners;
+    // Start EMPTY: the shared Sheet (admin's banners) fills this in. The old
+    // localStorage cache is IGNORED on load so stale default banners can never
+    // shadow the admin's shared banners (see syncBannersFromSheet).
+    let banners = [];
     let currentBannerIdx = 0;
     let bannerInterval = null;
 
@@ -645,11 +648,19 @@
     }
 
     // --- CAROUSEL SYSTEM ---
+    // Loading shimmer until the shared (admin) banners arrive; the carousel
+    // NEVER shows stale defaults — only admin-set banners scroll.
     function initCarousel() {
       const slides = document.getElementById('carouselSlides');
       const dots = document.getElementById('carouselDots');
       slides.innerHTML = '';
       dots.innerHTML = '';
+      clearInterval(bannerInterval);
+
+      if (!banners.length) {
+        slides.innerHTML = '<div class="carousel-slide flex items-center justify-center bg-gradient-to-r from-blue-100 to-amber-100"><span class="text-[11px] font-bold text-slate-500"><i class="ph-bold ph-spinner animate-spin"></i> ଅଫର୍ ଲୋଡ୍ ହେଉଛି...</span></div>';
+        return;
+      }
 
       banners.slice(0, 5).forEach((b, idx) => {
         const slide = document.createElement('div');
@@ -663,7 +674,6 @@
         dots.appendChild(dot);
       });
 
-      clearInterval(bannerInterval);
       bannerInterval = setInterval(() => {
         currentBannerIdx = (currentBannerIdx + 1) % Math.min(banners.length, 5);
         setSlide(currentBannerIdx);
@@ -1234,6 +1244,10 @@
     // --- BANNER MANAGER ---
     function renderAdminBanners() {
       var box = document.getElementById('adminBannerList');
+      if (!banners.length) {
+        box.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">📢 ଏପର୍ଯ୍ୟନ୍ତ କୌଣସି ବ୍ୟାନର୍ ନାହିଁ — ଉପରେ ନୂଆ ବ୍ୟାନର୍ ଯୋଡ଼ନ୍ତୁ।<br><span class="text-[10px]">ଯୋଡ଼ିଲେ ସମସ୍ତ ଗ୍ରାହକଙ୍କ ଫୋନ୍ ରେ ଦେଖାଯିବ।</span></p>';
+        return;
+      }
       box.innerHTML = banners.map((b, idx) => `
         <div class="flex items-center justify-between p-2 bg-white rounded-xl border border-slate-200 text-xs">
           <div class="flex items-center gap-2">
@@ -1874,8 +1888,13 @@
           var shared = [];
           try { shared = JSON.parse(cfg.banners) || []; } catch (e) { shared = []; }
           if (Array.isArray(shared) && shared.length) {
+            // Shared banners REPLACE everything — old local defaults are
+            // wiped so they can never scroll again on any device.
             banners = shared.slice(0, 5);
-            try { localStorage.setItem('SHOP_BANNERS', JSON.stringify(banners)); } catch (e) {}
+            try {
+              localStorage.setItem('SHOP_BANNERS', JSON.stringify(banners));
+              localStorage.setItem('SHOP_BANNERS_SHARED', '1');
+            } catch (e) {}
             initCarousel();
             var ad = document.getElementById('adminDashboard');
             if (ad && !ad.classList.contains('hidden')) renderAdminBanners();
