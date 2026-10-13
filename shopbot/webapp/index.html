@@ -4,29 +4,60 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>ମୁନ୍ନା ମୋବାଇଲ୍ ଆଣ୍ଡ୍ ଗ୍ରୋସରୀ - MUNNA MOBILE & GROCERY</title>
+
+<!-- Telegram WebApp SDK -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<!-- Tailwind CSS & Phosphor Icons -->
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+
+<!-- Leaflet.js for 3 KM Delivery Zone Map -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Oriya:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { font-family: 'Noto Sans Oriya', 'Plus Jakarta Sans', system-ui, sans-serif; background: #f1f3f6; color: #111; touch-action: pan-y; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Netlify floating badge hide */
+  [class*="netlify"], [data-netlify-deploy-id], div[style*="z-index: 10000"] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* 5-Slide Carousel Styling */
+  .carousel-slides { display: flex; transition: transform 0.4s ease-in-out; }
+  .carousel-slide { min-width: 100%; height: 140px; position: relative; }
+  .carousel-slide img { width: 100%; height: 100%; object-fit: cover; }
+  .dot.active { background: #fff; width: 16px; border-radius: 4px; }
+
+  /* Stepper styling for Live Order Tracking */
+  .stepper { position: relative; padding-left: 24px; }
+  .stepper-line { position: absolute; left: 7px; top: 10px; bottom: 10px; width: 2px; background: #e2e8f0; }
+  .step-item { position: relative; margin-bottom: 14px; }
+  .step-dot { position: absolute; left: -24px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #cbd5e1; border: 2px solid #fff; }
+  .step-item.done .step-dot { background: #16a34a; }
+  .step-item.active .step-dot { background: #1864ab; box-shadow: 0 0 0 3px rgba(24,100,171,0.25); }
 </style>
 </head>
 <body class="pb-32 antialiased">
 
+  <!-- ================= TOP HEADER ================= -->
   <header class="bg-[#1864ab] text-white px-4 pt-3 pb-3 sticky top-0 z-40 shadow-sm">
     <div class="max-w-md mx-auto flex items-center justify-between gap-2">
-      <div class="flex items-center gap-2">
+      <!-- Click Brand -> Go Home -->
+      <div onclick="showScreen('home')" class="flex items-center gap-2 cursor-pointer select-none">
         <div class="w-10 h-10 rounded-xl bg-[#ffd43b] text-slate-950 font-black text-2xl flex items-center justify-center shadow-xs">
           M
         </div>
         <div>
-          <h1 class="font-extrabold text-sm leading-tight">ମୁନ୍ନା ମୋବାଇଲ୍ ଆଣ୍ଡ୍ ଗ୍ରୋସରୀ</h1>
-          <p class="text-[10px] text-blue-100 flex items-center gap-1 font-medium">
+          <h1 id="lblStoreName" class="font-extrabold text-sm leading-tight">ମୁନ୍ନା ମୋବାଇଲ୍ ଆଣ୍ଡ୍ ଗ୍ରୋସରୀ</h1>
+          <p id="lblStoreSub" class="text-[10px] text-blue-100 flex items-center gap-1 font-medium">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
             <span>ମୋବାଇଲ୍ • ଆକ୍ସେସୋରିଜ୍ • ସଉଦା</span>
           </p>
@@ -37,14 +68,21 @@
           <i class="ph-bold ph-translate"></i>
           <span id="langBtnText">English</span>
         </button>
-        <button onclick="showScreen('profile')" id="navLoginBtn" class="px-2.5 py-1 rounded-lg bg-[#ffd43b] text-slate-950 text-xs font-black flex items-center gap-1 shadow-xs hover:bg-yellow-400">
-          <i class="ph-bold ph-user"></i>
-          <span id="navLoginText">ଲଗଇନ୍</span>
+        <button onclick="openAdminModal()" class="px-2.5 py-1 rounded-lg bg-[#ffd43b] text-slate-950 text-xs font-black flex items-center gap-1 shadow-xs hover:bg-yellow-400">
+          <i class="ph-bold ph-lock-key"></i>
+          <span>Admin</span>
         </button>
       </div>
     </div>
 
-    <div class="max-w-md mx-auto mt-2.5">
+    <!-- Store Address & 3KM Delivery Zone Strip -->
+    <div class="max-w-md mx-auto mt-2 bg-black/20 rounded-lg px-2.5 py-1 flex items-center justify-between text-[10px] font-semibold text-blue-100">
+      <span class="flex items-center gap-1"><i class="ph-bold ph-map-pin text-yellow-300"></i> Cinema Hall Road, Niali, 754004</span>
+      <span class="text-yellow-300 font-extrabold flex items-center gap-0.5"><i class="ph-fill ph-lightning"></i> 3 KM Zone</span>
+    </div>
+
+    <!-- Live Search Input -->
+    <div class="max-w-md mx-auto mt-2">
       <div class="relative">
         <i class="ph-bold ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
         <input 
@@ -61,39 +99,25 @@
     </div>
   </header>
 
+  <!-- ================= 5-SLIDE DYNAMIC CAROUSEL ================= -->
   <section class="max-w-md mx-auto px-3.5 mt-3">
-    <div class="bg-gradient-to-r from-[#146c43] to-[#0f5132] rounded-2xl p-4 text-white relative shadow-sm overflow-hidden">
-      <div class="flex items-center justify-between">
-        <span class="inline-flex items-center gap-1 bg-[#ffd43b] text-slate-950 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">
-          <i class="ph-bold ph-shopping-cart"></i> ମାସିକିଆ ସଉଦା ଅଫର୍
-        </span>
-        <div class="w-14 h-12 bg-white/10 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center border border-white/20">
-          <i class="ph-bold ph-basket text-yellow-300 text-xl leading-none"></i>
-          <span class="text-[9px] font-black text-yellow-300 mt-0.5">₹100 OFF</span>
-        </div>
-      </div>
-      <div class="my-2">
-        <h2 class="text-base font-black leading-tight">ଅଟା, ତେଲ, ଡାଲି ଓ ମସଲା<br>ହୋଲସେଲ୍ ଦରରେ!</h2>
-        <p class="text-[11px] text-emerald-100 mt-1">₹୯୯୯ ରୁ ଅଧିକ କିଣାକିଣିରେ ସିଧାସଳଖ ₹୧୦୦ ଫ୍ଲାଟ୍ ରିହାତି</p>
-      </div>
-      <div class="flex items-center justify-between pt-1 border-t border-white/10 text-[11px]">
-        <button onclick="filterCategory('Sunflower Oil')" class="text-white hover:text-yellow-300 font-bold flex items-center gap-1">
-          <i class="ph-bold ph-arrow-circle-right"></i> ଗ୍ରୋସରୀ ଦେଖନ୍ତୁ
-        </button>
-        <span class="bg-black/20 px-2 py-0.5 rounded-md text-[10px] font-medium text-emerald-200">100% Pure & Fresh</span>
-      </div>
+    <div class="relative rounded-2xl overflow-hidden shadow-sm bg-slate-200 h-[140px]" id="carouselWrapper">
+      <div class="carousel-slides" id="carouselSlides"></div>
+      <div class="absolute bottom-2 right-3 flex gap-1.5 z-10" id="carouselDots"></div>
     </div>
   </section>
 
+  <!-- ================= CATEGORY PILLS ================= -->
   <section class="max-w-md mx-auto px-3.5 mt-3">
     <div id="catsPillContainer" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1"></div>
   </section>
 
+  <!-- ================= PRODUCT GRID ================= -->
   <main class="max-w-md mx-auto px-3.5 mt-3">
     <div class="flex items-center justify-between mb-2">
       <h3 class="text-xs font-extrabold text-slate-800 flex items-center gap-1">
         <i class="ph-fill ph-fire text-rose-500"></i>
-        <span>ଲୋକପ୍ରିୟ ସାମଗ୍ରୀ (BEST OFFERS & DEALS)</span>
+        <span id="lblSectionTitle">ଲୋକପ୍ରିୟ ସାମଗ୍ରୀ (BEST OFFERS & DEALS)</span>
       </h3>
       <span id="productCountBadge" class="text-[11px] font-semibold text-slate-500">0 ଟି ସାମଗ୍ରୀ</span>
     </div>
@@ -105,10 +129,11 @@
     </div>
   </main>
 
+  <!-- ================= FLOATING CART BAR ================= -->
   <div id="floatingCartBar" class="fixed bottom-[58px] left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-xl">
-    <div class="max-w-md mx-auto px-4 py-2.5 flex items-center justify-between">
+    <div class="max-w-md mx-auto px-4 py-2 flex items-center justify-between">
       <div onclick="openCartDrawer()" class="cursor-pointer flex items-center gap-2.5">
-        <div class="relative w-10 h-10 rounded-xl bg-[#1864ab] text-white flex items-center justify-center">
+        <div class="relative w-9 h-9 rounded-xl bg-[#1864ab] text-white flex items-center justify-center">
           <i class="ph-bold ph-shopping-bag text-lg"></i>
           <span id="floatingCartBadge" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#f59f00] text-slate-950 text-[10px] font-black flex items-center justify-center border-2 border-white">0</span>
         </div>
@@ -117,17 +142,17 @@
           <span id="floatingCartTotal" class="text-sm font-black text-slate-900 mt-0.5">Rs.0</span>
         </div>
       </div>
-      <button onclick="openCartDrawer()" class="px-5 py-2.5 rounded-xl bg-[#1864ab] hover:bg-blue-800 text-white font-extrabold text-xs shadow-md shadow-blue-600/30 active:scale-95 transition-all flex items-center gap-1.5">
+      <button onclick="openCartDrawer()" class="px-4 py-2 rounded-xl bg-[#1864ab] hover:bg-blue-800 text-white font-extrabold text-xs shadow-md shadow-blue-600/30 active:scale-95 transition-all flex items-center gap-1.5">
         <span>କାର୍ଟ ଦେଖନ୍ତୁ / Checkout</span>
         <i class="ph-bold ph-arrow-right"></i>
       </button>
     </div>
   </div>
 
-  <!-- Bottom navigation (Flipkart/JioMart style) -->
+  <!-- ================= FLIPKART STYLE BOTTOM NAV ================= -->
   <nav id="bottomNav" class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-2xl">
     <div class="max-w-md mx-auto grid grid-cols-5 text-[9px] font-bold text-slate-500">
-      <button onclick="showScreen('home')" data-nav="home" class="nav-btn flex flex-col items-center py-2 gap-0.5">
+      <button onclick="showScreen('home')" data-nav="home" class="nav-btn flex flex-col items-center py-2 gap-0.5 text-[#1864ab]">
         <i class="ph-bold ph-house text-lg"></i><span>Home</span>
       </button>
       <button onclick="showScreen('orders')" data-nav="orders" class="nav-btn flex flex-col items-center py-2 gap-0.5">
@@ -146,8 +171,9 @@
     </div>
   </nav>
 
+  <!-- ================= CART & CHECKOUT DRAWER (WITH 3KM LEAFLET MAP) ================= -->
   <div id="cartDrawerBackdrop" onclick="closeCartDrawer()" class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 hidden opacity-0 transition-opacity duration-300"></div>
-  <div id="cartDrawer" class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-3xl shadow-2xl z-50 transform translate-y-full transition-transform duration-300 ease-out flex flex-col max-h-[85vh]">
+  <div id="cartDrawer" class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-3xl shadow-2xl z-50 transform translate-y-full transition-transform duration-300 ease-out flex flex-col max-h-[90vh]">
     <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
       <h3 class="font-extrabold text-slate-900 text-sm flex items-center gap-1.5">
         <i class="ph-bold ph-shopping-cart text-[#1864ab]"></i>
@@ -157,7 +183,9 @@
         <i class="ph-bold ph-x text-sm"></i>
       </button>
     </div>
+
     <div id="cartItemsContainer" class="p-4 overflow-y-auto space-y-2.5 flex-1 no-scrollbar"></div>
+
     <div id="cartFooterView" class="p-4 bg-slate-50 border-t border-slate-100">
       <div class="space-y-1 text-xs font-semibold text-slate-600 pb-2.5 border-b border-slate-200">
         <div class="flex justify-between">
@@ -165,7 +193,8 @@
           <span id="summaryTotal" class="text-sm font-extrabold text-[#1864ab]">Rs.0</span>
         </div>
       </div>
-      <!-- Step: Cart summary -->
+
+      <!-- Step 1: Cart Summary View -->
       <div id="stepCart">
         <button onclick="goCheckoutAddress()" class="mt-3 w-full py-2.5 rounded-xl bg-[#1864ab] hover:bg-blue-800 text-white font-extrabold text-xs shadow-md shadow-blue-600/30 active:scale-95 transition-all flex items-center justify-center gap-1.5">
           <span>Checkout କରନ୍ତୁ (Proceed)</span>
@@ -173,25 +202,34 @@
         </button>
       </div>
 
-      <!-- Step: Address -->
+      <!-- Step 2: Address & 3 KM Map Selection -->
       <div id="stepAddress" class="hidden">
         <div class="flex items-center justify-between mt-2 mb-1.5">
-          <span class="text-xs font-black text-slate-700">📍 ଡେଲିଭରୀ ଠିକଣା (Address)</span>
-          <button onclick="showScreen('address')" class="text-[11px] font-bold text-[#1864ab]">Manage</button>
+          <span class="text-xs font-black text-slate-700">📍 ଡେଲିଭରୀ ଲୋକେସନ୍ (୩ କି.ମି. ଭିତରେ)</span>
+          <button onclick="locateUserGPS()" class="text-[11px] font-bold text-[#1864ab] flex items-center gap-1">
+            <i class="ph-bold ph-crosshair"></i> GPS Auto-Locate
+          </button>
         </div>
+
+        <!-- Interactive Map Container -->
+        <div id="checkoutDeliveryMap" class="w-full h-36 rounded-xl border border-slate-200 my-1.5 z-10"></div>
+        <div id="mapStatusPill" class="text-[10px] font-bold p-1.5 rounded-lg mb-2 text-center bg-emerald-50 text-emerald-800 border border-emerald-200">
+          ମ୍ୟାପ୍ ଯାଞ୍ଚ ହେଉଛି...
+        </div>
+
         <div id="savedAddressPick" class="space-y-1.5 mb-2"></div>
         <div class="space-y-2">
           <input type="text" id="orderCustName" placeholder="ଆପଣଙ୍କ ନାମ (Name)" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white outline-none">
           <input type="tel" id="orderCustPhone" placeholder="ଫୋନ୍ ନମ୍ବର (Phone)" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white outline-none">
-          <textarea id="orderCustAddress" rows="2" placeholder="ଡେଲିଭରୀ ଠିକଣା (Delivery Address)" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white outline-none"></textarea>
+          <textarea id="orderCustAddress" rows="2" placeholder="ଘର ଠିକଣା / Landmark" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white outline-none"></textarea>
         </div>
         <div class="flex gap-2 mt-3">
           <button onclick="backToCart()" class="px-4 py-2.5 rounded-xl bg-slate-200 text-slate-700 font-bold text-xs">Back</button>
-          <button onclick="goCheckoutPayment()" class="flex-1 py-2.5 rounded-xl bg-[#1864ab] hover:bg-blue-800 text-white font-extrabold text-xs">Payment କରନ୍ତୁ</button>
+          <button id="btnProceedToPayment" onclick="goCheckoutPayment()" class="flex-1 py-2.5 rounded-xl bg-[#1864ab] hover:bg-blue-800 text-white font-extrabold text-xs">Payment କରନ୍ତୁ</button>
         </div>
       </div>
 
-      <!-- Step: Payment -->
+      <!-- Step 3: Payment Selection -->
       <div id="stepPayment" class="hidden">
         <span class="text-xs font-black text-slate-700 block mt-2 mb-1.5">💳 ପେମେଣ୍ଟ ମାଧ୍ୟମ (Payment)</span>
         <div class="space-y-1.5">
@@ -214,208 +252,37 @@
         </div>
       </div>
 
-      <!-- Step: Success -->
+      <!-- Step 4: Success View -->
       <div id="stepSuccess" class="hidden text-center py-2">
         <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-2">
           <i class="ph-bold ph-check-circle text-2xl"></i>
         </div>
         <h4 class="font-black text-slate-800 text-sm">ଅର୍ଡର ସଫଳ ହେଲା!</h4>
-        <p class="text-xs text-slate-500 mt-0.5">Order ID: <span id="successOrderId" class="font-bold"></span></p>
+        <p class="text-xs text-slate-500 mt-0.5">Order ID: <span id="successOrderId" class="font-bold text-[#1864ab]"></span></p>
         <div class="flex gap-2 mt-3">
-          <button onclick="closeCartDrawer(); showScreen('orders')" class="flex-1 py-2.5 rounded-xl bg-slate-200 text-slate-700 font-bold text-xs">My Orders</button>
-          <button onclick="closeCartDrawer(); showScreen('home')" class="flex-1 py-2.5 rounded-xl bg-[#1864ab] text-white font-bold text-xs">Continue</button>
+          <button onclick="closeCartDrawer(); showScreen('orders')" class="flex-1 py-2.5 rounded-xl bg-slate-200 text-slate-700 font-bold text-xs">Track Order</button>
+          <button onclick="closeCartDrawer(); showScreen('home')" class="flex-1 py-2.5 rounded-xl bg-[#1864ab] text-white font-bold text-xs">Continue Shopping</button>
         </div>
       </div>
     </div>
   </div>
 
-  <div id="adminPinModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white w-full max-w-xs rounded-2xl p-5 shadow-2xl text-center">
-      <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-2">
-        <i class="ph-bold ph-lock-key text-xl"></i>
-      </div>
-      <h3 class="font-extrabold text-slate-900 text-sm">ଦୋକାନ ଆଡମିନ୍ ପିନ୍</h3>
-      <p class="text-[11px] text-slate-500 mt-0.5">PIN ପ୍ରବେଶ କରନ୍ତୁ (Default: 1234)</p>
-      <input type="password" id="adminPinInput" maxlength="6" placeholder="PIN" class="my-3 text-center tracking-widest text-base font-bold w-28 mx-auto py-1 border-b-2 border-amber-500 outline-none">
-      <div class="flex items-center gap-2">
-        <button onclick="closeAdminPinModal()" class="w-1/2 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">ବାତିଲ୍</button>
-        <button onclick="verifyAdminPin()" class="w-1/2 py-2 rounded-xl bg-[#1864ab] text-white text-xs font-extrabold">ଲଗଇନ୍</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="adminDashboard" class="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 hidden overflow-y-auto">
-    <div class="min-h-full max-w-md mx-auto bg-slate-50 border-x border-slate-200 flex flex-col">
-      <div class="bg-[#1864ab] text-white px-4 py-3 flex items-center justify-between sticky top-0 z-10 shadow-md">
-        <div class="flex items-center gap-2">
-          <i class="ph-bold ph-gear text-amber-400"></i>
-          <span class="font-bold text-xs">MUNNA Store Admin Panel</span>
-        </div>
-        <button onclick="closeAdminDashboard()" class="w-6 h-6 rounded bg-blue-900 text-white flex items-center justify-center">
-          <i class="ph-bold ph-x text-xs"></i>
-        </button>
-      </div>
-
-      <div class="p-3.5 space-y-3 flex-1">
-        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
-          <div class="flex items-center justify-between mb-1.5">
-            <label class="text-[11px] font-bold text-slate-700">Google Sheet Apps Script Webhook</label>
-            <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">Live Sync</span>
-          </div>
-          <div class="flex gap-1.5">
-            <input type="text" id="webhookInput" placeholder="https://script.google.com/macros/s/.../exec" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none">
-            <button onclick="saveWebhook()" class="px-2.5 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg shrink-0">Save</button>
-            <button onclick="manualSync()" id="syncNowBtn" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shrink-0 flex items-center gap-1">
-              <i class="ph-bold ph-arrows-clockwise"></i>
-              <span>Sync</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs" id="adminFormCard">
-          <div class="flex items-center justify-between mb-2">
-            <h4 class="text-xs font-black uppercase text-slate-700 flex items-center gap-1" id="formHeaderTitle">
-              <i class="ph-bold ph-plus-circle text-emerald-600"></i> 
-              <span>+ Add / Smart Search Product</span>
-            </h4>
-            <button onclick="resetAdminForm()" id="cancelEditBtn" class="hidden text-[10px] bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-md font-bold">
-              Cancel Edit
-            </button>
-          </div>
-
-          <div class="bg-blue-50/70 border border-blue-200 p-2.5 rounded-xl mb-3 space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-extrabold text-blue-900 flex items-center gap-1">
-                <i class="ph-bold ph-magnifying-glass text-[#1864ab]"></i> Search Source
-              </span>
-              <div class="flex items-center bg-white p-0.5 rounded-lg border border-blue-300 text-[10px] font-bold">
-                <button type="button" id="toggleJioBtn" onclick="setSearchSource('jiomart')" class="px-2 py-0.5 rounded-md bg-[#1864ab] text-white">JioMart</button>
-                <button type="button" id="toggleWebBtn" onclick="setSearchSource('web')" class="px-2 py-0.5 rounded-md text-slate-600">Other API</button>
-              </div>
-            </div>
-
-            <div id="pincodeWrapper" class="flex items-center gap-1.5 pt-1 border-t border-blue-200/60">
-              <span class="text-[10px] font-bold text-blue-800 shrink-0">Pincode:</span>
-              <input type="number" id="searchPincode" value="752106" placeholder="752106" class="w-24 text-xs px-2 py-1 bg-white border border-blue-300 rounded-md outline-none font-bold text-[#1864ab]">
-              <span class="text-[9px] text-slate-500 leading-tight">(Default: Niali 752106)</span>
-            </div>
-          </div>
-
-          <form onsubmit="handleAdminFormSubmit(event)" class="space-y-2.5">
-            <input type="hidden" id="editEan" value="">
-            <input type="hidden" id="editRowIndex" value="">
-
-            <div>
-              <label class="text-[11px] font-bold text-slate-700">Product Name (ସାମଗ୍ରୀର ନାମ)</label>
-              <div class="flex gap-1 mt-0.5">
-                <input 
-                  type="text" 
-                  id="newProdName" 
-                  required 
-                  placeholder="e.g. Atta, Fortune Oil, Horlicks" 
-                  class="w-full text-xs px-2.5 py-2 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]"
-                >
-                <button 
-                  type="button" 
-                  onclick="triggerLiveSearch()"
-                  id="smartSearchBtn"
-                  class="px-3 py-1.5 bg-[#1864ab] hover:bg-blue-800 text-white text-[11px] font-bold rounded-lg shrink-0 flex items-center gap-1 shadow-xs"
-                >
-                  <i class="ph-bold ph-magnifying-glass"></i>
-                  <span>Search</span>
-                </button>
-              </div>
-              <p class="text-[10px] text-slate-400 mt-0.5">JioMart ରୁ ଲାଇଭ୍ ଫଟୋ, MRP ଓ Selling Price ଆଣିବାକୁ Search ଦବାନ୍ତୁ।</p>
-            </div>
-
-            <div id="imageDropdownContainer" class="hidden bg-slate-50 border-2 border-dashed border-blue-300 rounded-2xl p-3 my-2 transition-all">
-              <div class="flex items-center justify-between pb-2 border-b border-slate-200">
-                <span class="text-xs font-extrabold text-[#1864ab] flex items-center gap-1">
-                  <i class="ph-bold ph-sparkle text-amber-500"></i>
-                  <span id="resultsHeaderTitle">JioMart Results:</span>
-                </span>
-                <button type="button" onclick="closeImageDropdown()" class="text-slate-400 hover:text-rose-500">
-                  <i class="ph-bold ph-x-circle text-base"></i>
-                </button>
-              </div>
-              <div id="imageGridResults" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 max-h-60 overflow-y-auto pr-1"></div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="text-[11px] font-bold text-slate-700">MRP (ଅସଲି ଦର)</label>
-                <input type="number" id="newProdMRP" required placeholder="0" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
-              </div>
-              <div>
-                <label class="text-[11px] font-bold text-slate-700">Selling Price (ବିକ୍ରି ଦର)</label>
-                <input type="number" id="newProdSP" required placeholder="0" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="text-[11px] font-bold text-slate-700">Stock Qty (ମୋଟ ଷ୍ଟକ୍)</label>
-                <input type="number" id="newProdStock" required placeholder="10" value="10" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
-              </div>
-              <div>
-                <label class="text-[11px] font-bold text-slate-700">Category (ବର୍ଗ)</label>
-                <input type="text" id="newProdCat" required placeholder="Atta, Oil, Sugar..." class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
-              </div>
-            </div>
-
-            <div>
-              <label class="text-[11px] font-bold text-slate-700">Image URL (ଫଟୋ ଲିଙ୍କ୍)</label>
-              <input type="url" id="newProdImg" oninput="updateImagePreview(this.value)" placeholder="https://..." class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
-              
-              <div id="imgPreviewBox" class="hidden mt-2 p-1.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center gap-2">
-                <img id="imgPreviewTag" src="" class="w-10 h-10 object-contain bg-white rounded border border-slate-100" alt="Preview">
-                <span class="text-[10px] text-emerald-600 font-bold">Image Selected & Ready!</span>
-              </div>
-            </div>
-
-            <button type="submit" id="adminFormSubmitBtn" class="w-full py-2.5 bg-[#1864ab] hover:bg-blue-800 text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center justify-center gap-1.5 transition-all">
-              <i class="ph-bold ph-floppy-disk"></i>
-              <span id="submitBtnLabel">Save & Publish to Sheet</span>
-            </button>
-          </form>
-        </div>
-
-        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
-          <div class="flex items-center justify-between mb-2">
-            <h4 class="text-xs font-black uppercase text-slate-500">Live Sheet Items (ପୁରୁଣା ସାମଗ୍ରୀ)</h4>
-            <span id="adminTotalItems" class="text-xs font-bold text-[#1864ab]">0 Items</span>
-          </div>
-
-          <div class="relative mb-2.5">
-            <i class="ph-bold ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-            <input 
-              type="text" 
-              id="adminSearchInput" 
-              placeholder="ପୁରୁଣା ସାମଗ୍ରୀ ଖୋଜନ୍ତୁ..." 
-              oninput="handleAdminSearch(this.value)"
-              class="w-full pl-8 pr-7 py-1.5 bg-slate-100 text-xs rounded-lg border border-slate-200 outline-none focus:bg-white focus:border-[#1864ab]"
-            >
-            <button id="adminClearSearchBtn" onclick="clearAdminSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-              <i class="ph-bold ph-x-circle text-xs"></i>
-            </button>
-          </div>
-
-          <div id="adminInventoryList" class="space-y-2 max-h-72 overflow-y-auto no-scrollbar"></div>
-        </div>
-
-      </div>
-    </div>
-  </div>
-
-  <!-- ============ SCREENS (full-screen overlays) ============ -->
+  <!-- ================= ORDERS SCREEN (WITH 5-STAGE STEPPER) ================= -->
   <div id="ordersScreen" class="screen fixed inset-0 z-50 bg-[#f1f3f6] hidden overflow-y-auto">
     <div class="sticky top-0 bg-[#1864ab] text-white px-4 py-3 flex items-center gap-2">
       <button onclick="closeScreen('orders')" class="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center"><i class="ph-bold ph-arrow-left"></i></button>
-      <h3 class="font-extrabold text-sm">My Orders (ମୋ ଅର୍ଡର)</h3>
+      <h3 class="font-extrabold text-sm">My Orders & Live Tracking</h3>
     </div>
-    <div id="ordersList" class="p-3 space-y-2.5 max-w-md mx-auto pb-28"></div>
+    <div class="p-3 max-w-md mx-auto pb-28 space-y-3">
+      <div class="bg-white p-3 rounded-2xl border border-slate-200 flex gap-2">
+        <input type="tel" id="trackOrderPhoneInput" placeholder="10-digit mobile number" class="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-200 outline-none">
+        <button onclick="renderOrders()" class="px-3 py-1.5 bg-[#1864ab] text-white text-xs font-bold rounded-lg">ଖୋଜନ୍ତୁ</button>
+      </div>
+      <div id="ordersList" class="space-y-3"></div>
+    </div>
   </div>
 
+  <!-- ================= ADDRESS SCREEN ================= -->
   <div id="addressScreen" class="screen fixed inset-0 z-50 bg-[#f1f3f6] hidden overflow-y-auto">
     <div class="sticky top-0 bg-[#1864ab] text-white px-4 py-3 flex items-center gap-2">
       <button onclick="closeScreen('address')" class="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center"><i class="ph-bold ph-arrow-left"></i></button>
@@ -438,6 +305,7 @@
     </div>
   </div>
 
+  <!-- ================= PROFILE SCREEN ================= -->
   <div id="profileScreen" class="screen fixed inset-0 z-50 bg-[#f1f3f6] hidden overflow-y-auto">
     <div class="sticky top-0 bg-[#1864ab] text-white px-4 py-3 flex items-center gap-2">
       <button onclick="closeScreen('profile')" class="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center"><i class="ph-bold ph-arrow-left"></i></button>
@@ -464,239 +332,269 @@
     </div>
   </div>
 
-  <script>
-    var currentSearchSource = "jiomart";
+  <!-- ================= ADMIN PIN MODAL ================= -->
+  <div id="adminPinModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-xs rounded-2xl p-5 shadow-2xl text-center">
+      <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-2">
+        <i class="ph-bold ph-lock-key text-xl"></i>
+      </div>
+      <h3 class="font-extrabold text-slate-900 text-sm">ଦୋକାନ ଆଡମିନ୍ ପିନ୍</h3>
+      <p class="text-[11px] text-slate-500 mt-0.5">PIN ପ୍ରବେଶ କରନ୍ତୁ (Default: 1234)</p>
+      <input type="password" id="adminPinInput" maxlength="6" placeholder="PIN" class="my-3 text-center tracking-widest text-base font-bold w-28 mx-auto py-1 border-b-2 border-amber-500 outline-none">
+      <div class="flex items-center gap-2">
+        <button onclick="closeAdminPinModal()" class="w-1/2 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">ବାତିଲ୍</button>
+        <button onclick="verifyAdminPin()" class="w-1/2 py-2 rounded-xl bg-[#1864ab] text-white text-xs font-extrabold">ଲଗଇନ୍</button>
+      </div>
+    </div>
+  </div>
 
-    function setSearchSource(src) {
-      currentSearchSource = src;
-      var jioBtn = document.getElementById('toggleJioBtn');
-      var webBtn = document.getElementById('toggleWebBtn');
-      var pinBox = document.getElementById('pincodeWrapper');
-
-      if (src === 'jiomart') {
-        jioBtn.className = "px-2 py-0.5 rounded-md bg-[#1864ab] text-white";
-        webBtn.className = "px-2 py-0.5 rounded-md text-slate-600";
-        pinBox.classList.remove('hidden');
-      } else {
-        webBtn.className = "px-2 py-0.5 rounded-md bg-[#1864ab] text-white";
-        jioBtn.className = "px-2 py-0.5 rounded-md text-slate-600";
-        pinBox.classList.add('hidden');
-      }
-    }
-
-    async function triggerLiveSearch() {
-      var q = document.getElementById('newProdName').value.trim();
-      var pin = document.getElementById('searchPincode').value.trim() || '752106';
-
-      if (!q || q.length < 2) {
-        alert("ଦୟାକରି ସାମଗ୍ରୀର ନାମ ଲେଖନ୍ତୁ!");
-        return;
-      }
-
-      var searchBtn = document.getElementById('smartSearchBtn');
-      searchBtn.disabled = true;
-      searchBtn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> Searching...';
-
-      var dropdown = document.getElementById('imageDropdownContainer');
-      var grid = document.getElementById('imageGridResults');
-      var headerTitle = document.getElementById('resultsHeaderTitle');
-      dropdown.classList.remove('hidden');
-
-      grid.innerHTML = '<div class="col-span-full py-4 text-center text-xs text-blue-600 font-bold"><i class="ph-bold ph-spinner animate-spin"></i> JioMart (PIN: ' + pin + ') ଲାଇଭ୍ ଡାଟା ଖୋଜା ଚାଲିଛି...</div>';
-
-      var results = [];
-
-      if (currentSearchSource === 'jiomart') {
-        headerTitle.innerText = `JioMart Results (PIN: ${pin}):`;
-
-        // 1. Check Local/Render Python Server
-        try {
-          var localServerUrl = `http://localhost:8085/?q=${encodeURIComponent(q)}&pincode=${encodeURIComponent(pin)}`;
-          var localRes = await fetch(localServerUrl);
-          var localData = await localRes.json();
-          if (localData && localData.status === "success" && Array.isArray(localData.items) && localData.items.length > 0) {
-            results = localData.items;
-          }
-        } catch(e) {}
-
-        // 2. Apps Script Proxy
-        if (results.length === 0) {
-          var hook = localStorage.getItem('munna_sheet_webhook');
-          if (hook) {
-            try {
-              var cleanHook = hook.split('?')[0];
-              var fetchUrl = `${cleanHook}?action=SEARCH_JIOMART&query=${encodeURIComponent(q)}&pincode=${encodeURIComponent(pin)}`;
-              var res = await fetch(fetchUrl);
-              var data = await res.json();
-              if (data && data.status === "success" && Array.isArray(data.items) && data.items.length > 0) {
-                results = data.items;
-              }
-            } catch(e) {}
-          }
-        }
-
-        // 3. Fallback Web Proxy
-        if (results.length === 0) {
-          try {
-            var targetJioUrl = `https://www.jiomart.com/api/service/application/catalog/v1.0/products?q=${encodeURIComponent(q)}&page_size=12&page_no=1`;
-            var proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetJioUrl)}`;
-            var proxyRes = await fetch(proxyUrl);
-            var proxyJson = await proxyRes.json();
-            
-            if (proxyJson && proxyJson.contents) {
-              var jioData = JSON.parse(proxyJson.contents);
-              var items = jioData.items || (jioData.data && jioData.data.items) || [];
-              
-              items.forEach(function(item) {
-                var imgUrl = "";
-                if (item.medias && item.medias.length > 0) {
-                  for (var m = 0; m < item.medias.length; m++) {
-                    var media = item.medias[m];
-                    if (media.url && (!media.type || String(media.type).toLowerCase() === "image")) {
-                      imgUrl = media.url;
-                      break;
-                    }
-                  }
-                }
-
-                var mrp = 0;
-                var sp = 0;
-                if (item.price) {
-                  if (item.price.marked) mrp = item.price.marked.min || item.price.marked.max || item.price.marked;
-                  if (item.price.effective) sp = item.price.effective.min || item.price.effective.max || item.price.effective;
-                }
-
-                var cat = "Grocery";
-                if (item.hierarchy && item.hierarchy.l3_category) {
-                  cat = item.hierarchy.l3_category.name;
-                } else if (item.hierarchy && item.hierarchy.l2_category) {
-                  cat = item.hierarchy.l2_category.name;
-                }
-
-                if (imgUrl) {
-                  results.push({
-                    title: item.name || "Product",
-                    url: imgUrl,
-                    mrp: mrp ? String(mrp) : "",
-                    sp: sp ? String(sp) : "",
-                    cat: cat,
-                    source: "JioMart"
-                  });
-                }
-              });
-            }
-          } catch(err) {}
-        }
-      }
-
-      if (currentSearchSource === 'web' || (results.length === 0 && currentSearchSource === 'web')) {
-        headerTitle.innerText = "Global Web API Results:";
-        try {
-          var cleanQ = q.toLowerCase().replace(/fartune/g, "fortune").replace(/horliks/g, "horlicks");
-          var apiUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(cleanQ)}&search_simple=1&action=process&json=1&page_size=15`;
-          var resWeb = await fetch(apiUrl);
-          var jsonWeb = await resWeb.json();
-          if (jsonWeb && jsonWeb.products) {
-            jsonWeb.products.forEach(p => {
-              var img = p.image_front_url || p.image_url;
-              if (img) {
-                results.push({
-                  title: p.product_name || q,
-                  url: img,
-                  mrp: "",
-                  sp: "",
-                  cat: p.categories ? p.categories.split(',')[0].trim() : "General",
-                  source: "Web"
-                });
-              }
-            });
-          }
-        } catch(e) {}
-      }
-
-      searchBtn.disabled = false;
-      searchBtn.innerHTML = '<i class="ph-bold ph-magnifying-glass"></i> <span>Search</span>';
-
-      if (results.length === 0) {
-        grid.innerHTML = `
-          <div class="col-span-full py-3 text-center space-y-2">
-            <p class="text-xs text-rose-500 font-bold">କୌଣସି ସାମଗ୍ରୀ ସିଧାସଳଖ ମିଳିଲା ନାହିଁ।</p>
-            <a href="https://www.jiomart.com/products?q=${encodeURIComponent(q)}" target="_blank" 
-               class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#1864ab] hover:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-xs">
-              <i class="ph-bold ph-arrow-square-out"></i>
-              <span>JioMart ରେ '${q}' ଖୋଲନ୍ତୁ</span>
-            </a>
-          </div>
-        `;
-        return;
-      }
-
-      grid.innerHTML = results.map(item => `
-        <div onclick="selectProductToForm('${encodeURIComponent(item.url)}', '${encodeURIComponent(item.title)}', '${encodeURIComponent(item.cat || "General")}', '${item.mrp || ""}', '${item.sp || ""}')"
-             class="group cursor-pointer bg-white p-2 rounded-xl border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all flex flex-col items-center text-center">
-          <div class="w-full h-24 bg-slate-50 rounded-lg overflow-hidden flex items-center justify-center mb-1.5 p-1 relative">
-            <span class="absolute top-1 left-1 bg-black/60 text-white text-[8px] font-bold px-1 rounded">${item.source}</span>
-            <img src="${item.url}" class="w-full h-full object-contain group-hover:scale-105 transition-transform" onerror="this.parentElement.parentElement.style.display='none'">
-          </div>
-          <span class="text-[10px] font-bold text-slate-700 line-clamp-1 w-full">${item.title}</span>
-          ${item.sp ? `<span class="text-[10px] font-extrabold text-emerald-600 mt-0.5">₹${item.sp}${item.mrp ? `<span class="line-through text-slate-400 font-normal text-[9px]">₹${item.mrp}</span>` : ''}</span>` : ''}
-          <span class="mt-1 text-[9px] bg-blue-50 text-blue-700 font-extrabold px-1.5 py-0.5 rounded group-hover:bg-blue-600 group-hover:text-white transition-all">
-            ଚୟନ କରନ୍ତୁ
-          </span>
+  <!-- ================= FULL ADMIN DASHBOARD ================= -->
+  <div id="adminDashboard" class="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 hidden overflow-y-auto">
+    <div class="min-h-full max-w-md mx-auto bg-slate-50 border-x border-slate-200 flex flex-col pb-10">
+      <div class="bg-[#1864ab] text-white px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-md">
+        <div class="flex items-center gap-2">
+          <i class="ph-bold ph-gear text-amber-400"></i>
+          <span class="font-bold text-xs">MUNNA Store Admin Panel</span>
         </div>
-      `).join('');
-    }
+        <button onclick="closeAdminDashboard()" class="w-6 h-6 rounded bg-blue-900 text-white flex items-center justify-center">
+          <i class="ph-bold ph-x text-xs"></i>
+        </button>
+      </div>
 
-    function selectProductToForm(encodedUrl, encodedTitle, encodedCat, mrp, sp) {
-      var url = decodeURIComponent(encodedUrl);
-      var title = decodeURIComponent(encodedTitle);
-      var cat = decodeURIComponent(encodedCat);
+      <!-- Admin Top Nav Tabs -->
+      <div class="flex bg-white border-b border-slate-200 text-xs font-bold text-slate-600 sticky top-12 z-20">
+        <button onclick="switchAdminTab('orders')" id="admTabBtn-orders" class="flex-1 py-2.5 text-center border-b-2 border-[#1864ab] text-[#1864ab]">📦 Orders</button>
+        <button onclick="switchAdminTab('stock')" id="admTabBtn-stock" class="flex-1 py-2.5 text-center border-b-2 border-transparent">🏷️ Catalog</button>
+        <button onclick="switchAdminTab('banners')" id="admTabBtn-banners" class="flex-1 py-2.5 text-center border-b-2 border-transparent">📢 Banners</button>
+        <button onclick="switchAdminTab('sync')" id="admTabBtn-sync" class="flex-1 py-2.5 text-center border-b-2 border-transparent">⚙️ Sheets</button>
+      </div>
 
-      document.getElementById('newProdImg').value = url;
-      updateImagePreview(url);
+      <div class="p-3.5 space-y-3 flex-1">
+        <!-- Tab 1: Orders (5-Stage Fulfillment & Live Item Editing) -->
+        <div id="admTab-orders" class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-black text-slate-700">📦 Customer Orders (5-Stage Dispatch)</h4>
+            <button onclick="renderAdminOrders()" class="text-[11px] font-bold text-[#1864ab] flex items-center gap-1">
+              <i class="ph-bold ph-arrows-clockwise"></i> Refresh
+            </button>
+          </div>
+          <div id="adminOrdersContainer" class="space-y-3"></div>
+        </div>
 
-      if (title) document.getElementById('newProdName').value = title;
-      if (cat && cat !== "General") document.getElementById('newProdCat').value = cat;
-      if (mrp) document.getElementById('newProdMRP').value = mrp;
-      if (sp) document.getElementById('newProdSP').value = sp;
+        <!-- Tab 2: Catalog Manager (Smart Search & Edit) -->
+        <div id="admTab-stock" class="hidden space-y-3">
+          <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs" id="adminFormCard">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-xs font-black uppercase text-slate-700 flex items-center gap-1" id="formHeaderTitle">
+                <i class="ph-bold ph-plus-circle text-emerald-600"></i> 
+                <span>+ Add / Smart Search Product</span>
+              </h4>
+              <button onclick="resetAdminForm()" id="cancelEditBtn" class="hidden text-[10px] bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-md font-bold">
+                Cancel Edit
+              </button>
+            </div>
 
-      closeImageDropdown();
-      alert("JioMart ରୁ ଫଟୋ, MRP (₹" + mrp + ") ଏବଂ Selling Price (₹" + sp + ") ସଫଳତାର ସହ ଆସିଗଲା!");
-    }
+            <div class="bg-blue-50/70 border border-blue-200 p-2.5 rounded-xl mb-3 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-extrabold text-blue-900 flex items-center gap-1">
+                  <i class="ph-bold ph-magnifying-glass text-[#1864ab]"></i> Search Source
+                </span>
+                <div class="flex items-center bg-white p-0.5 rounded-lg border border-blue-300 text-[10px] font-bold">
+                  <button type="button" id="toggleJioBtn" onclick="setSearchSource('jiomart')" class="px-2 py-0.5 rounded-md bg-[#1864ab] text-white">JioMart</button>
+                  <button type="button" id="toggleWebBtn" onclick="setSearchSource('web')" class="px-2 py-0.5 rounded-md text-slate-600">Other API</button>
+                </div>
+              </div>
+              <div id="pincodeWrapper" class="flex items-center gap-1.5 pt-1 border-t border-blue-200/60">
+                <span class="text-[10px] font-bold text-blue-800 shrink-0">Pincode:</span>
+                <input type="number" id="searchPincode" value="752106" class="w-24 text-xs px-2 py-1 bg-white border border-blue-300 rounded-md outline-none font-bold text-[#1864ab]">
+                <span class="text-[9px] text-slate-500">(Niali 752106)</span>
+              </div>
+            </div>
 
-    function closeImageDropdown() {
-      document.getElementById('imageDropdownContainer').classList.add('hidden');
-    }
+            <form onsubmit="handleAdminFormSubmit(event)" class="space-y-2.5">
+              <input type="hidden" id="editEan" value="">
+              <input type="hidden" id="editRowIndex" value="">
 
-    function updateImagePreview(url) {
-      var box = document.getElementById('imgPreviewBox');
-      var img = document.getElementById('imgPreviewTag');
-      if (url && url.startsWith('http')) {
-        img.src = url;
-        box.classList.remove('hidden');
-      } else {
-        box.classList.add('hidden');
-      }
-    }
+              <div>
+                <label class="text-[11px] font-bold text-slate-700">Product Name</label>
+                <div class="flex gap-1 mt-0.5">
+                  <input type="text" id="newProdName" required placeholder="e.g. Fortune Oil, Atta" class="w-full text-xs px-2.5 py-2 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+                  <button type="button" onclick="triggerLiveSearch()" id="smartSearchBtn" class="px-3 py-1.5 bg-[#1864ab] hover:bg-blue-800 text-white text-[11px] font-bold rounded-lg shrink-0 flex items-center gap-1">
+                    <i class="ph-bold ph-magnifying-glass"></i> Search
+                  </button>
+                </div>
+              </div>
 
-    window.STORE_CATALOG = [
-      {"rowIndex": 2, "ean": "7533476", "product_name": "Freedom Refined Sunflower Oil 1 L", "mrp": "230", "selling_price": "169", "stock_qty": "10", "image_url": "https://cdn1.jiomartjcp.com/v2/catalog-cloud/jiomar/original/images/othe/egurhk/.j/pg/0000000004907689361.jpg.1947779d4b.jpg", "category": "Sunflower Oil"}
+              <div id="imageDropdownContainer" class="hidden bg-slate-50 border-2 border-dashed border-blue-300 rounded-2xl p-3 my-2 transition-all">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+                  <span class="text-xs font-extrabold text-[#1864ab] flex items-center gap-1" id="resultsHeaderTitle">JioMart Results:</span>
+                  <button type="button" onclick="closeImageDropdown()" class="text-slate-400 hover:text-rose-500"><i class="ph-bold ph-x-circle text-base"></i></button>
+                </div>
+                <div id="imageGridResults" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 max-h-60 overflow-y-auto pr-1"></div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-[11px] font-bold text-slate-700">MRP</label>
+                  <input type="number" id="newProdMRP" required placeholder="0" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+                </div>
+                <div>
+                  <label class="text-[11px] font-bold text-slate-700">Selling Price</label>
+                  <input type="number" id="newProdSP" required placeholder="0" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-[11px] font-bold text-slate-700">Stock Qty</label>
+                  <input type="number" id="newProdStock" required placeholder="10" value="10" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+                </div>
+                <div>
+                  <label class="text-[11px] font-bold text-slate-700">Category</label>
+                  <input type="text" id="newProdCat" required placeholder="Grocery, Oil..." class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+                </div>
+              </div>
+
+              <div>
+                <label class="text-[11px] font-bold text-slate-700">Image URL</label>
+                <input type="url" id="newProdImg" oninput="updateImagePreview(this.value)" placeholder="https://..." class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+                <div id="imgPreviewBox" class="hidden mt-2 p-1.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center gap-2">
+                  <img id="imgPreviewTag" src="" class="w-10 h-10 object-contain bg-white rounded border border-slate-100" alt="Preview">
+                  <span class="text-[10px] text-emerald-600 font-bold">Image Ready!</span>
+                </div>
+              </div>
+
+              <button type="submit" id="adminFormSubmitBtn" class="w-full py-2.5 bg-[#1864ab] hover:bg-blue-800 text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center justify-center gap-1.5">
+                <i class="ph-bold ph-floppy-disk"></i>
+                <span id="submitBtnLabel">Save & Publish to Sheet</span>
+              </button>
+            </form>
+          </div>
+
+          <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-xs font-black uppercase text-slate-500">Live Inventory</h4>
+              <span id="adminTotalItems" class="text-xs font-bold text-[#1864ab]">0 Items</span>
+            </div>
+            <div id="adminInventoryList" class="space-y-2 max-h-72 overflow-y-auto no-scrollbar"></div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Promotional Banners (Max 5) -->
+        <div id="admTab-banners" class="hidden space-y-3">
+          <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-2">
+            <h4 class="text-xs font-black text-slate-700">📢 ୫-ସ୍ଲାଇଡ୍ ପ୍ରମୋସନ୍ ବ୍ୟାନର୍ ମ୍ୟାନେଜର୍</h4>
+            <input type="text" id="newBannerImg" placeholder="Image URL (https://...)" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none">
+            <input type="text" id="newBannerTitle" placeholder="Banner Title / Offer Text" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none">
+            <button onclick="addBanner()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg">+ Add Banner</button>
+          </div>
+          <div id="adminBannerList" class="space-y-2 max-h-60 overflow-y-auto"></div>
+        </div>
+
+        <!-- Tab 4: Google Sheets Live Sync -->
+        <div id="admTab-sync" class="hidden space-y-3">
+          <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-2">
+            <label class="text-[11px] font-bold text-slate-700">Google Sheet Apps Script Webhook</label>
+            <div class="flex gap-1.5">
+              <input type="text" id="webhookInput" placeholder="https://script.google.com/macros/s/.../exec" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none">
+              <button onclick="saveWebhook()" class="px-2.5 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg shrink-0">Save</button>
+              <button onclick="manualSync()" id="syncNowBtn" class="px-2.5 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg shrink-0">Sync</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= LOGIC SCRIPT ================= -->
+  <script>
+    // Store Location Coordinates: Niali Cinema Hall Road
+    const STORE_LAT = 20.132475;
+    const STORE_LNG = 86.059808;
+    const MAX_RADIUS_KM = 3.0;
+
+    let customerLat = STORE_LAT;
+    let customerLng = STORE_LNG;
+    let isWithinRadius = true;
+    let checkoutMap = null;
+    let deliveryMarker = null;
+
+    // Telegram SDK
+    var tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    if (tg) { tg.ready(); tg.expand(); }
+
+    // Dynamic 5-Slide Banners
+    let defaultBanners = [
+      { id: 1, title: "ଅଟା, ତେଲ ଓ ଡାଲି ହୋଲସେଲ୍ ଦରରେ!", img: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=700" },
+      { id: 2, title: "ମୋବାଇଲ୍ ବ୍ୟାକ୍ କଭର୍ ଓ UV ଗ୍ଲାସ୍ ଫ୍ଲାଟ୍ ୫୦% ରିହାତି", img: "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=700" },
+      { id: 3, title: "ଫ୍ରିଡମ୍ ସନଫ୍ଲାୱାର୍ ତେଲ ସ୍ପେଶାଲ୍ ଡିଲ୍", img: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=700" }
     ];
+    let banners = JSON.parse(localStorage.getItem('SHOP_BANNERS')) || defaultBanners;
+    let currentBannerIdx = 0;
+    let bannerInterval = null;
 
+    // Catalog state
+    window.STORE_CATALOG = [
+      {"rowIndex": 2, "ean": "7533476", "product_name": "Freedom Refined Sunflower Oil 1 L", "mrp": "230", "selling_price": "169", "stock_qty": "10", "image_url": "https://cdn1.jiomartjcp.com/v2/catalog-cloud/jiomar/original/images/othe/egurhk/.j/pg/0000000004907689361.jpg.1947779d4b.jpg", "category": "Sunflower Oil"},
+      {"rowIndex": 3, "ean": "7533477", "product_name": "Horlicks Classic Malt 1 kg", "mrp": "555", "selling_price": "390", "stock_qty": "10", "image_url": "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=400", "category": "Nutritional Drinks"},
+      {"rowIndex": 4, "ean": "7533478", "product_name": "UV Curved Tempered Glass", "mrp": "299", "selling_price": "149", "stock_qty": "20", "image_url": "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=400", "category": "Mobile"}
+    ];
     const localSaved = localStorage.getItem('munna_store_catalog');
     if (localSaved) {
       try { window.STORE_CATALOG = JSON.parse(localSaved); } catch(e){}
     }
 
-    var tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-    if (tg) { tg.ready(); tg.expand(); }
-
     var cart = {};
     var activeCat = "All";
     var query = "";
-    var adminSearchQuery = "";
     var isEnglish = false;
+    var currentSearchSource = "jiomart";
 
+    // Mathematical Haversine Distance Formula
+    function calcDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return (R * c).toFixed(2);
+    }
+
+    // --- CAROUSEL SYSTEM ---
+    function initCarousel() {
+      const slides = document.getElementById('carouselSlides');
+      const dots = document.getElementById('carouselDots');
+      slides.innerHTML = '';
+      dots.innerHTML = '';
+
+      banners.slice(0, 5).forEach((b, idx) => {
+        const slide = document.createElement('div');
+        slide.className = 'carousel-slide';
+        slide.innerHTML = `<img src="${b.img}" alt=""><div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white p-2 text-xs font-bold">${b.title}</div>`;
+        slides.appendChild(slide);
+
+        const dot = document.createElement('div');
+        dot.className = `dot w-2 h-2 rounded-full bg-white/60 cursor-pointer ${idx === 0 ? 'active' : ''}`;
+        dot.onclick = () => setSlide(idx);
+        dots.appendChild(dot);
+      });
+
+      clearInterval(bannerInterval);
+      bannerInterval = setInterval(() => {
+        currentBannerIdx = (currentBannerIdx + 1) % Math.min(banners.length, 5);
+        setSlide(currentBannerIdx);
+      }, 3500);
+    }
+
+    function setSlide(idx) {
+      currentBannerIdx = idx;
+      document.getElementById('carouselSlides').style.transform = `translateX(-${idx * 100}%)`;
+      document.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+    }
+
+    // --- CATALOG & CART RENDERING ---
     function money(v) { var n = parseFloat(v) || 0; return (Math.round(n * 100) / 100).toString(); }
     function catOf(p) { return (((p.category || "General") + "").trim()) || "General"; }
 
@@ -737,14 +635,11 @@
       grid.innerHTML = "";
 
       var q = query.trim().toLowerCase();
-      var filtered = [];
-
-      for (var i = 0; i < window.STORE_CATALOG.length; i++) {
-        var p = window.STORE_CATALOG[i];
-        if (activeCat !== "All" && catOf(p) !== activeCat) continue;
-        if (q && (p.product_name || "").toLowerCase().indexOf(q) < 0) continue;
-        filtered.push(p);
-      }
+      var filtered = window.STORE_CATALOG.filter(p => {
+        if (activeCat !== "All" && catOf(p) !== activeCat) return false;
+        if (q && (p.product_name || "").toLowerCase().indexOf(q) < 0) return false;
+        return true;
+      });
 
       document.getElementById("productCountBadge").innerText = `${filtered.length} ଟି ସାମଗ୍ରୀ`;
 
@@ -752,7 +647,7 @@
         empty.classList.remove("hidden");
       } else {
         empty.classList.add("hidden");
-        filtered.forEach(function(p) {
+        filtered.forEach(p => {
           var qty = cart[p.ean] || 0;
           var mrpVal = parseFloat(p.mrp) || 0;
           var spVal = parseFloat(p.selling_price) || 0;
@@ -760,18 +655,15 @@
 
           var card = document.createElement("div");
           card.className = "bg-white rounded-2xl p-2.5 border border-slate-200 shadow-xs flex flex-col justify-between relative";
-
           card.innerHTML = `
             ${discount > 0 ? `<span class="absolute top-2 left-2 z-10 bg-orange-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-md">${discount}% OFF</span>` : ''}
             <div class="w-full h-32 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden">
-              <img src="${p.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80'}" alt="${p.product_name}" class="w-full h-full object-contain p-1" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80'">
+              <img src="${p.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400'}" alt="${p.product_name}" class="w-full h-full object-contain p-1" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=400'">
             </div>
             <div class="mt-2 flex-1 flex flex-col justify-between">
               <h4 class="text-xs font-bold text-slate-800 line-clamp-2 leading-tight">${p.product_name}</h4>
               <div class="flex items-center gap-1 mt-1.5">
-                <span class="bg-emerald-600 text-white text-[9px] font-bold px-1 rounded flex items-center gap-0.5">
-                  4.8 <i class="ph-fill ph-star text-[8px]"></i>
-                </span>
+                <span class="bg-emerald-600 text-white text-[9px] font-bold px-1 rounded flex items-center gap-0.5">4.8 <i class="ph-fill ph-star text-[8px]"></i></span>
                 <span class="text-[10px] text-slate-400 font-semibold">Stock: ${p.stock_qty || 10}</span>
               </div>
               <div class="flex items-baseline gap-1 mt-1">
@@ -806,17 +698,80 @@
 
     function renderBar() {
       var keys = Object.keys(cart), n = 0, total = 0;
-      for (var k = 0; k < keys.length; k++) {
-        var p = window.STORE_CATALOG.find(x => String(x.ean) === String(keys[k]));
-        if (!p) continue;
-        n += cart[keys[k]];
-        total += (parseFloat(p.selling_price) || 0) * cart[keys[k]];
-      }
+      keys.forEach(k => {
+        var p = window.STORE_CATALOG.find(x => String(x.ean) === String(k));
+        if (p) {
+          n += cart[k];
+          total += (parseFloat(p.selling_price) || 0) * cart[k];
+        }
+      });
       document.getElementById("floatingCartBadge").innerText = n;
       document.getElementById("floatingCartTotal").innerText = "Rs." + money(total);
       updateCartBadge();
     }
 
+    function updateCartBadge() {
+      var n = 0; Object.keys(cart).forEach(k => n += cart[k]);
+      var b = document.getElementById('navCartBadge');
+      if (b) { b.innerText = n; b.classList.toggle('hidden', n === 0); }
+    }
+
+    // --- LEAFLET MAP & 3KM DELIVERY RADIUS CHECK ---
+    function initCheckoutMap() {
+      if (!checkoutMap) {
+        checkoutMap = L.map('checkoutDeliveryMap').setView([STORE_LAT, STORE_LNG], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(checkoutMap);
+
+        // Shop Marker
+        L.marker([STORE_LAT, STORE_LNG]).addTo(checkoutMap).bindPopup("<b>MUNNA GROCERY (Shop)</b>").openPopup();
+
+        // 3 KM Zone
+        L.circle([STORE_LAT, STORE_LNG], { color: '#16a34a', fillColor: '#86efac', fillOpacity: 0.2, radius: 3000 }).addTo(checkoutMap);
+
+        // Draggable Customer Marker
+        deliveryMarker = L.marker([STORE_LAT, STORE_LNG], { draggable: true }).addTo(checkoutMap);
+        deliveryMarker.on('dragend', function(e) {
+          var pos = e.target.getLatLng();
+          updateMapDistance(pos.lat, pos.lng);
+        });
+      }
+      setTimeout(() => { checkoutMap.invalidateSize(); }, 300);
+      updateMapDistance(STORE_LAT, STORE_LNG);
+    }
+
+    function updateMapDistance(lat, lng) {
+      customerLat = lat;
+      customerLng = lng;
+      deliveryMarker.setLatLng([lat, lng]);
+      var dist = calcDistance(STORE_LAT, STORE_LNG, lat, lng);
+      var pill = document.getElementById('mapStatusPill');
+      var btn = document.getElementById('btnProceedToPayment');
+
+      if (dist <= MAX_RADIUS_KM) {
+        isWithinRadius = true;
+        pill.className = "text-[10px] font-bold p-1.5 rounded-lg mb-2 text-center bg-emerald-50 text-emerald-800 border border-emerald-200";
+        pill.innerText = `✅ ଦୂରତା: ${dist} KM (୩ କି.ମି. ଭିତରେ - ୧୦-୧୫ ମିନିଟ୍‌ରେ ଡେଲିଭରୀ)`;
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+      } else {
+        isWithinRadius = false;
+        pill.className = "text-[10px] font-bold p-1.5 rounded-lg mb-2 text-center bg-rose-50 text-rose-800 border border-rose-200";
+        pill.innerText = `❌ ଦୂରତା: ${dist} KM (୩ କି.ମି. ବାହାରେ ଡେଲିଭରୀ ସେବା ଉପଲବ୍ଧ ନାହିଁ)`;
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+      }
+    }
+
+    function locateUserGPS() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          checkoutMap.setView([pos.coords.latitude, pos.coords.longitude], 15);
+          updateMapDistance(pos.coords.latitude, pos.coords.longitude);
+        }, () => { alert("GPS ଅନୁମତି ମିଳିଲା ନାହିଁ। ମ୍ୟାପ୍‌ରେ ପିନ୍ ଟାଣି ରଖନ୍ତୁ।"); });
+      }
+    }
+
+    // --- CHECKOUT WORKFLOW ---
     function openCartDrawer() {
       document.getElementById('cartDrawerBackdrop').classList.remove('hidden');
       setTimeout(() => {
@@ -859,43 +814,101 @@
       document.getElementById('summaryTotal').innerText = "Rs." + money(total);
     }
 
-    // --- Per-user checkout profile -----------------------------------------
-    // The customer's name/phone/address is remembered per Telegram user so the
-    // form is prefilled next time - no retyping the address on every order.
-    // Priority: ?addr/?phone/?name (bot's saved address) > localStorage > Telegram profile.
-    function getTgUser() {
-      try { return (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null; } catch (e) { return null; }
-    }
-    function userProfileKey() {
-      var u = getTgUser();
-      return 'munna_profile_' + (u && u.id ? u.id : 'anon');
-    }
-    function prefillOrderForm() {
-      var sp = null;
-      try { sp = new URLSearchParams(window.location.search); } catch (e) {}
-      var saved = null;
-      try { saved = JSON.parse(localStorage.getItem(userProfileKey()) || 'null'); } catch (e) {}
-      var u = getTgUser();
-      var name = (sp && sp.get('name')) || (saved && saved.name) || (u && u.first_name) || '';
-      var phone = (sp && sp.get('phone')) || (saved && saved.phone) || (u && u.phone_number) || '';
-      var addr = (sp && sp.get('addr')) || (saved && saved.address) || '';
-      if (name) document.getElementById('orderCustName').value = name;
-      if (phone) document.getElementById('orderCustPhone').value = phone;
-      if (addr) document.getElementById('orderCustAddress').value = addr;
-    }
-    function saveOrderProfile(name, phone, address) {
-      try { localStorage.setItem(userProfileKey(), JSON.stringify({ name: name, phone: phone, address: address })); } catch (e) {}
+    function setStep(name) {
+      ['stepCart','stepAddress','stepPayment','stepSuccess'].forEach(s => {
+        var el = document.getElementById(s);
+        if (el) el.classList.toggle('hidden', s !== ('step' + name));
+      });
     }
 
-    // --- Screen navigation --------------------------------------------------
-    var currentScreen = 'home';
+    function goCheckoutAddress() {
+      if (!Object.keys(cart).length) { alert("Cart ଖାଲି ଅଛି!"); return; }
+      prefillOrderForm();
+      renderSavedAddressPick();
+      setStep('Address');
+      initCheckoutMap();
+    }
+    function backToCart() { setStep('Cart'); }
+    function goCheckoutPayment() {
+      if (!isWithinRadius) { alert("୩ କିଲୋମିଟର ବାହାରେ ସେବା ଉପଲବ୍ଧ ନାହିଁ!"); return; }
+      if (!document.getElementById('orderCustAddress').value.trim() || !document.getElementById('orderCustPhone').value.trim()) {
+        alert("କୃପା କରି ଠିକଣା ଓ ଫୋନ୍ ଦିଅନ୍ତୁ!"); return;
+      }
+      setStep('Payment');
+    }
+    function backToAddress() { setStep('Address'); }
+
+    function placeMiniOrder() {
+      var items = Object.keys(cart).map(ean => ({ ean: ean, qty: cart[ean] }));
+      var name = document.getElementById('orderCustName').value.trim() || 'Customer';
+      var phone = document.getElementById('orderCustPhone').value.trim();
+      var address = document.getElementById('orderCustAddress').value.trim();
+      var payEl = document.querySelector('input[name="payMethod"]:checked');
+      var payment = payEl ? payEl.value : 'COD';
+
+      var total = 0, lines = [];
+      items.forEach(it => {
+        var p = window.STORE_CATALOG.find(x => String(x.ean) === String(it.ean));
+        if (p) {
+          var sub = (parseFloat(p.selling_price)||0) * it.qty;
+          total += sub;
+          lines.push({ name: p.product_name, qty: it.qty, price: p.selling_price });
+        }
+      });
+
+      var orderId = 'ORD' + Date.now().toString().slice(-6);
+      var orderObj = {
+        id: orderId,
+        date: new Date().toISOString(),
+        name: name,
+        phone: phone,
+        address: address,
+        lat: customerLat,
+        lng: customerLng,
+        payment: payment,
+        total: total,
+        items: lines,
+        stage: 1, // 1: Placed, 2: Accepted, 3: Packing, 4: Out for Delivery, 5: Delivered
+        status: 'Order Placed'
+      };
+
+      // Save to local order store
+      var orders = getMyOrders();
+      orders.unshift(orderObj);
+      setMyOrders(orders);
+
+      // Post to Google Sheet Webhook
+      var hook = localStorage.getItem('munna_sheet_webhook');
+      if (hook) {
+        try {
+          fetch(hook, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: "create_order", order: orderObj })
+          });
+        } catch(e){}
+      }
+
+      // Send to Telegram Bot
+      sendToBot({ action: 'ORDER', orderId: orderId, order: orderObj });
+
+      cart = {};
+      render();
+      renderBar();
+      updateCartBadge();
+      renderCartDrawer();
+      document.getElementById('successOrderId').innerText = orderId;
+      setStep('Success');
+    }
+
+    // --- SCREEN NAVIGATION ---
     function showScreen(name) {
-      ['orders','address','profile'].forEach(function(s){
+      ['orders','address','profile'].forEach(s => {
         var el = document.getElementById(s + 'Screen');
         if (el) el.classList.toggle('hidden', s !== name);
       });
-      currentScreen = name;
-      document.querySelectorAll('.nav-btn').forEach(function(b){
+      document.querySelectorAll('.nav-btn').forEach(b => {
         var on = b.dataset.nav === name;
         b.classList.toggle('text-[#1864ab]', on);
         b.classList.toggle('text-slate-500', !on);
@@ -903,259 +916,65 @@
       if (name === 'orders') renderOrders();
       if (name === 'address') renderAddressList();
       if (name === 'profile') renderProfile();
+      if (name === 'home') window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    function closeScreen(name) {
-      var el = document.getElementById(name + 'Screen');
-      if (el) el.classList.add('hidden');
-      currentScreen = 'home';
-      document.querySelectorAll('.nav-btn').forEach(function(b){
-        b.classList.toggle('text-[#1864ab]', b.dataset.nav === 'home');
-        b.classList.toggle('text-slate-500', b.dataset.nav !== 'home');
-      });
-    }
+    function closeScreen(name) { showScreen('home'); }
 
-    // --- Per-user storage ---------------------------------------------------
-    function uidKey(base) { var u = getTgUser(); return base + '_' + (u && u.id ? u.id : 'anon'); }
-    function getAddresses() { try { return JSON.parse(localStorage.getItem(uidKey('munna_addresses')) || '[]'); } catch(e){ return []; } }
-    function setAddresses(a) { try { localStorage.setItem(uidKey('munna_addresses'), JSON.stringify(a)); } catch(e){} }
-    function getMyOrders() { try { return JSON.parse(localStorage.getItem(uidKey('munna_orders')) || '[]'); } catch(e){ return []; } }
-    function setMyOrders(o) { try { localStorage.setItem(uidKey('munna_orders'), JSON.stringify(o)); } catch(e){} }
-    // --- Address book -------------------------------------------------------
-    function openAddressForm(id) {
-      var f = document.getElementById('addressForm');
-      f.classList.remove('hidden');
-      document.getElementById('addrEditId').value = id || '';
-      var prof = null; try { prof = JSON.parse(localStorage.getItem(userProfileKey()) || 'null'); } catch(e){}
-      var u = getTgUser();
-      if (id) {
-        var a = getAddresses().find(x => x.id === id) || {};
-        document.getElementById('addrName').value = a.name || '';
-        document.getElementById('addrPhone').value = a.phone || '';
-        document.getElementById('addrText').value = a.address || '';
-        document.getElementById('addrDefault').checked = !!a.isDefault;
-      } else {
-        document.getElementById('addrName').value = (prof && prof.name) || (u && u.first_name) || '';
-        document.getElementById('addrPhone').value = (prof && prof.phone) || (u && u.phone_number) || '';
-        document.getElementById('addrText').value = (prof && prof.address) || '';
-        document.getElementById('addrDefault').checked = getAddresses().length === 0;
-      }
-      f.scrollIntoView({ behavior: 'smooth' });
-    }
-    function closeAddressForm() { document.getElementById('addressForm').classList.add('hidden'); }
-    function saveAddressForm() {
-      var id = document.getElementById('addrEditId').value;
-      var name = document.getElementById('addrName').value.trim();
-      var phone = document.getElementById('addrPhone').value.trim();
-      var address = document.getElementById('addrText').value.trim();
-      var isDefault = document.getElementById('addrDefault').checked;
-      if (!name || !phone || !address) { alert("Name, phone ଏବଂ address ସବୁ ଦିଅନ୍ତୁ!"); return; }
-      var list = getAddresses();
-      if (isDefault) list.forEach(a => a.isDefault = false);
-      if (id) {
-        var a = list.find(x => x.id === id);
-        if (a) { a.name=name; a.phone=phone; a.address=address; a.isDefault=isDefault; }
-      } else {
-        list.push({ id: 'A' + Date.now(), name:name, phone:phone, address:address, isDefault: isDefault || list.length===0 });
-      }
-      setAddresses(list);
-      saveOrderProfile(name, phone, address);
-      sendToBot({ action: 'SAVE_ADDRESS', name: name, phone: phone, address: address, isDefault: isDefault });
-      closeAddressForm();
-      renderAddressList();
-    }
-    function deleteAddress(id) {
-      if (!confirm('ଏହି ଠିକଣା ଡିଲିଟ୍ କରିବେ କି?')) return;
-      setAddresses(getAddresses().filter(a => a.id !== id));
-      renderAddressList();
-    }
-    function setDefaultAddress(id) {
-      var list = getAddresses();
-      list.forEach(a => a.isDefault = a.id === id);
-      setAddresses(list);
-      var a = list.find(x => x.id === id);
-      if (a) saveOrderProfile(a.name, a.phone, a.address);
-      renderAddressList();
-    }
-    function renderAddressList() {
-      var box = document.getElementById('addressList');
-      var list = getAddresses();
-      if (!list.length) {
-        box.innerHTML = '<p class="text-center text-xs text-slate-400 py-8">କୌଣସି ଠିକଣା ସେଭ୍ ହୋଇନାହିଁ। + Add ରେ ଯୋଡ଼ନ୍ତୁ।</p>';
-        return;
-      }
-      box.innerHTML = list.map(a => `
-        <div class="bg-white p-3 rounded-2xl border ${a.isDefault ? 'border-[#1864ab]' : 'border-slate-200'}">
-          <div class="flex-1">
-            <div class="flex items-center gap-2">
-              <span class="font-black text-slate-800 text-xs">${a.name}</span>
-              ${a.isDefault ? '<span class="text-[9px] bg-[#1864ab] text-white px-1.5 py-0.5 rounded font-bold">DEFAULT</span>' : ''}
-            </div>
-            <p class="text-[11px] text-slate-500 mt-0.5">${a.phone}</p>
-            <p class="text-[11px] text-slate-600 mt-1">${a.address}</p>
-          </div>
-          <div class="flex gap-3 mt-2 pt-2 border-t border-slate-100 text-[11px] font-bold">
-            ${a.isDefault ? '' : `<button onclick="setDefaultAddress('${a.id}')" class="text-[#1864ab]">Set Default</button>`}
-            <button onclick="openAddressForm('${a.id}')" class="text-amber-600">Edit</button>
-            <button onclick="deleteAddress('${a.id}')" class="text-rose-600">Delete</button>
-          </div>
-        </div>
-      `).join('');
-    }
-    // --- Checkout steps -----------------------------------------------------
-    function setStep(name) {
-      ['stepCart','stepAddress','stepPayment','stepSuccess'].forEach(function(s){
-        var el = document.getElementById(s);
-        if (el) el.classList.toggle('hidden', s !== ('step' + name));
-      });
-    }
-    function goCheckoutAddress() {
-      if (!Object.keys(cart).length) { alert("Cart ଖାଲି ଅଛି!"); return; }
-      prefillOrderForm();
-      renderSavedAddressPick();
-      setStep('Address');
-    }
-    function backToCart() { setStep('Cart'); }
-    function goCheckoutPayment() {
-      if (!document.getElementById('orderCustAddress').value.trim() || !document.getElementById('orderCustPhone').value.trim()) {
-        alert("କୃପା କରି ଠିକଣା ଓ ଫୋନ୍ ଦିଅନ୍ତୁ!"); return;
-      }
-      setStep('Payment');
-    }
-    function backToAddress() { setStep('Address'); }
-    function renderSavedAddressPick() {
-      var box = document.getElementById('savedAddressPick');
-      var list = getAddresses();
-      if (!list.length) { box.innerHTML = ''; return; }
-      box.innerHTML = list.slice(0,3).map(a => `
-        <div onclick="pickSavedAddress('${a.id}')" class="p-2 rounded-xl border ${a.isDefault?'border-[#1864ab] bg-blue-50':'border-slate-200 bg-white'} cursor-pointer text-[11px]">
-          <span class="font-bold">${a.name}</span> · <span class="text-slate-500">${a.phone}</span>
-          <p class="text-slate-600 mt-0.5">${a.address}</p>
-        </div>
-      `).join('');
-    }
-    function pickSavedAddress(id) {
-      var a = getAddresses().find(x => x.id === id);
-      if (!a) return;
-      document.getElementById('orderCustName').value = a.name;
-      document.getElementById('orderCustPhone').value = a.phone;
-      document.getElementById('orderCustAddress').value = a.address;
-      saveOrderProfile(a.name, a.phone, a.address);
-      renderSavedAddressPick();
-    }
-    function sendToBot(payload) {
-      if (tg && tg.sendData) { try { tg.sendData(JSON.stringify(payload)); return true; } catch(e){} }
-      return false;
-    }
-
-    function placeMiniOrder() {
-      var items = Object.keys(cart).map(ean => ({ ean: ean, qty: cart[ean] }));
-      if (!items.length) { alert("Cart ଖାଲି ଅଛି!"); return; }
-      var name = document.getElementById('orderCustName').value.trim() || 'Customer';
-      var phone = document.getElementById('orderCustPhone').value.trim();
-      var address = document.getElementById('orderCustAddress').value.trim();
-      if (!phone || !address) { setStep('Address'); alert("ଫୋନ୍ ଓ ଠିକଣା ଦିଅନ୍ତୁ!"); return; }
-      var payEl = document.querySelector('input[name="payMethod"]:checked');
-      var payment = payEl ? payEl.value : 'COD';
-
-      var total = 0, lines = [];
-      items.forEach(function(it){
-        var p = window.STORE_CATALOG.find(x => String(x.ean) === String(it.ean));
-        if (p) { var sub=(parseFloat(p.selling_price)||0)*it.qty; total+=sub; lines.push({name:p.product_name, qty:it.qty, price:p.selling_price}); }
-      });
-
-      var orderId = 'M' + Date.now().toString().slice(-8);
-      var order = { id: orderId, date: new Date().toISOString(), name:name, phone:phone, address:address,
-                    payment: payment, total: total, items: lines, status: 'Placed' };
-      var orders = getMyOrders(); orders.unshift(order); setMyOrders(orders);
-      saveOrderProfile(name, phone, address);
-      // Real order to the bot -> db.place_order (Sheets + stock deduction)
-      sendToBot({ action:'ORDER', orderId: orderId, customer:name, phone:phone, address:address, payment:payment, total:total, items: items });
-      cart = {}; render(); renderBar(); updateCartBadge(); renderCartDrawer();
-      document.getElementById('successOrderId').innerText = orderId;
-      setStep('Success');
-    }
-    // --- Orders screen ------------------------------------------------------
-    function statusChip(s) {
-      var map = { 'Placed':'bg-blue-100 text-blue-700', 'Confirmed':'bg-indigo-100 text-indigo-700', 'Packing':'bg-amber-100 text-amber-700', 'Out for delivery':'bg-orange-100 text-orange-700', 'Delivered':'bg-emerald-100 text-emerald-700', 'Cancelled':'bg-rose-100 text-rose-700' };
-      return `<span class="text-[9px] font-black px-2 py-0.5 rounded-full ${map[s] || 'bg-slate-100 text-slate-600'}">${s}</span>`;
-    }
+    // --- 5-STAGE LIVE ORDER TRACKING ---
     function renderOrders() {
       var box = document.getElementById('ordersList');
+      var filterPhone = document.getElementById('trackOrderPhoneInput').value.trim();
       var orders = getMyOrders();
+
+      if (filterPhone) {
+        orders = orders.filter(o => o.phone.includes(filterPhone));
+      }
+
       if (!orders.length) {
-        box.innerHTML = '<div class="text-center py-16"><i class="ph-bold ph-receipt text-5xl text-slate-300"></i><p class="text-xs text-slate-400 mt-2">ଏଯାଏଁ କୌଣସି ଅର୍ଡର ନାହିଁ।</p></div>';
+        box.innerHTML = '<div class="text-center py-16"><i class="ph-bold ph-receipt text-5xl text-slate-300"></i><p class="text-xs text-slate-400 mt-2">କୌଣସି ଅର୍ଡର ମିଳିଲା ନାହିଁ।</p></div>';
         return;
       }
-      box.innerHTML = orders.map(o => `
-        <div class="bg-white p-3 rounded-2xl border border-slate-200">
-          <div class="flex items-center justify-between">
-            <span class="font-black text-slate-800 text-xs">#${o.id}</span>
-            ${statusChip(o.status)}
+
+      const stages = [
+        { num: 1, label: "Order Placed", desc: "ଅର୍ଡର ଗ୍ରହଣ ହେଲା" },
+        { num: 2, label: "Accepted", desc: "ଦୋକାନୀ ଅର୍ଡର ଗ୍ରହଣ କଲେ" },
+        { num: 3, label: "Packing", desc: "ପ୍ୟାକିଂ ଓ ଷ୍ଟକ୍ ଯାଞ୍ଚ ସରିଲା" },
+        { num: 4, label: "Out for Delivery", desc: "ଡେଲିଭରୀ ବାହାରିଛି" },
+        { num: 5, label: "Delivered", desc: "ସଫଳତାର ସହ ପହଞ୍ଚିଲା" }
+      ];
+
+      box.innerHTML = orders.map(o => {
+        var stNum = o.stage || 1;
+        var stepperHtml = `<div class="stepper my-2.5"><div class="stepper-line"></div>` + 
+          stages.map(st => `
+            <div class="step-item ${stNum > st.num ? 'done' : ''} ${stNum === st.num ? 'active' : ''}">
+              <div class="step-dot"></div>
+              <div class="text-xs font-bold text-slate-800">${st.label}</div>
+              <div class="text-[10px] text-slate-400">${st.desc}</div>
+            </div>
+          `).join('') + `</div>`;
+
+        return `
+          <div class="bg-white p-3.5 rounded-2xl border border-slate-200">
+            <div class="flex items-center justify-between">
+              <span class="font-black text-slate-800 text-xs">#${o.id}</span>
+              <span class="text-[9px] bg-blue-100 text-blue-800 font-extrabold px-2 py-0.5 rounded-full">Stage ${stNum}/5</span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-0.5">${new Date(o.date).toLocaleString()} · ${o.payment}</p>
+            <div class="my-2 p-2 bg-slate-50 rounded-xl space-y-1">
+              ${(o.items||[]).map(i => `<div class="flex justify-between text-[11px]"><span class="text-slate-600">${i.name} x${i.qty}</span><span class="font-bold">Rs.${money((parseFloat(i.price)||0)*i.qty)}</span></div>`).join('')}
+            </div>
+            <div class="flex justify-between pt-1 border-t border-slate-100 text-xs font-black">
+              <span>Total Bill</span>
+              <span class="text-[#1864ab]">Rs.${money(o.total)}</span>
+            </div>
+            ${stepperHtml}
           </div>
-          <p class="text-[10px] text-slate-400 mt-0.5">${new Date(o.date).toLocaleString()}</p>
-          <div class="mt-2 space-y-1">
-            ${(o.items||[]).map(i=>`<div class="flex justify-between text-[11px]"><span class="text-slate-600">${i.name} x${i.qty}</span><span class="font-bold">Rs.${money((parseFloat(i.price)||0)*i.qty)}</span></div>`).join('')}
-          </div>
-          <div class="flex justify-between mt-2 pt-2 border-t border-slate-100 text-xs">
-            <span class="font-bold text-slate-600">${o.payment} · Total</span>
-            <span class="font-black text-[#1864ab]">Rs.${money(o.total)}</span>
-          </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
-    // --- Profile screen -----------------------------------------------------
-    function renderProfile() {
-      var u = getTgUser();
-      var prof = null; try { prof = JSON.parse(localStorage.getItem(userProfileKey()) || 'null'); } catch(e){}
-      var name = (u && u.first_name) || (prof && prof.name) || 'Customer';
-      document.getElementById('profName').innerText = name;
-      document.getElementById('profPhone').innerText = (u && u.phone_number) || (prof && prof.phone) || '';
-      document.getElementById('profId').innerText = u ? ('Telegram ID: ' + u.id) : '';
-      document.getElementById('profAvatar').innerText = (name||'M').charAt(0).toUpperCase();
-      document.getElementById('profOrderCount').innerText = getMyOrders().length;
-      document.getElementById('profAddrCount').innerText = getAddresses().length;
-      var lt = document.getElementById('navLoginText'); if (lt) lt.innerText = name;
-    }
-
-    function updateCartBadge() {
-      var n = 0; Object.keys(cart).forEach(k => n += cart[k]);
-      var b = document.getElementById('navCartBadge');
-      if (b) { b.innerText = n; b.classList.toggle('hidden', n === 0); }
-    }
-
-    function handleSearch(val) {
-      query = val || "";
-      document.getElementById('clearSearchBtn').classList.toggle('hidden', !query);
-      render();
-    }
-    function clearSearch() {
-      document.getElementById('searchInput').value = "";
-      query = "";
-      document.getElementById('clearSearchBtn').classList.add('hidden');
-      render();
-    }
-    function filterCategory(cat) { activeCat = cat; render(); }
-    function toggleLang() {
-      isEnglish = !isEnglish;
-      document.getElementById('langBtnText').innerText = isEnglish ? "ଓଡ଼ିଆ" : "English";
-    }
-
-    function toggleProfileDrawer() {
-      var d = document.getElementById('profileDrawer');
-      var b = document.getElementById('profileDrawerBackdrop');
-      if (b && d) {
-        if (b.classList.contains('hidden')) {
-          b.classList.remove('hidden');
-          setTimeout(() => { b.classList.add('opacity-100'); d.classList.remove('translate-y-full'); }, 10);
-        } else {
-          d.classList.add('translate-y-full');
-          b.classList.remove('opacity-100');
-          setTimeout(() => b.classList.add('hidden'), 300);
-        }
-      }
-    }
-
+    // --- ADMIN SYSTEM (5-STAGE FULFILLMENT & EDIT ORDER ITEMS) ---
     function openAdminModal() {
       document.getElementById('adminPinModal').classList.remove('hidden');
       document.getElementById('adminPinInput').value = '';
@@ -1165,163 +984,239 @@
     function verifyAdminPin() {
       if (document.getElementById('adminPinInput').value === '1234') {
         closeAdminPinModal();
-        openAdminDashboard();
+        document.getElementById('adminDashboard').classList.remove('hidden');
+        renderAdminOrders();
+        renderAdminList();
+        renderAdminBanners();
+        var hook = localStorage.getItem('munna_sheet_webhook');
+        if (hook) document.getElementById('webhookInput').value = hook;
       } else {
         alert("ଭୁଲ୍ PIN (Default: 1234)!");
       }
     }
-    function openAdminDashboard() {
-      document.getElementById('adminDashboard').classList.remove('hidden');
-      renderAdminList();
-      var hook = localStorage.getItem('munna_sheet_webhook');
-      if (hook) document.getElementById('webhookInput').value = hook;
-    }
-    function closeAdminDashboard() { 
-      document.getElementById('adminDashboard').classList.add('hidden'); 
-      resetAdminForm();
-    }
-    
-    function saveWebhook() {
-      var u = document.getElementById('webhookInput').value.trim();
-      localStorage.setItem('munna_sheet_webhook', u);
-      alert("Webhook URL Saved!");
-      syncFromGoogleSheet();
-    }
+    function closeAdminDashboard() { document.getElementById('adminDashboard').classList.add('hidden'); }
 
-    function editAdminProduct(idx) {
-      var p = window.STORE_CATALOG[idx];
-      if (!p) return;
-
-      document.getElementById('editEan').value = p.ean;
-      document.getElementById('editRowIndex').value = p.rowIndex || '';
-      document.getElementById('newProdName').value = p.product_name;
-      document.getElementById('newProdMRP').value = p.mrp;
-      document.getElementById('newProdSP').value = p.selling_price;
-      document.getElementById('newProdStock').value = p.stock_qty || 10;
-      document.getElementById('newProdCat').value = p.category || 'General';
-      document.getElementById('newProdImg').value = p.image_url || '';
-      updateImagePreview(p.image_url || '');
-
-      document.getElementById('formHeaderTitle').innerHTML = '<i class="ph-bold ph-pencil-simple text-amber-600"></i> <span>Edit (' + p.product_name + ')</span>';
-      document.getElementById('submitBtnLabel').innerText = "Update & Save to Sheet";
-      document.getElementById('cancelEditBtn').classList.remove('hidden');
-
-      document.getElementById('adminFormCard').scrollIntoView({ behavior: 'smooth' });
-    }
-
-    function resetAdminForm() {
-      document.getElementById('editEan').value = '';
-      document.getElementById('editRowIndex').value = '';
-      document.getElementById('newProdName').value = '';
-      document.getElementById('newProdMRP').value = '';
-      document.getElementById('newProdSP').value = '';
-      document.getElementById('newProdStock').value = '10';
-      document.getElementById('newProdCat').value = '';
-      document.getElementById('newProdImg').value = '';
-      updateImagePreview('');
-      closeImageDropdown();
-
-      document.getElementById('formHeaderTitle').innerHTML = '<i class="ph-bold ph-plus-circle text-emerald-600"></i> <span>+ Add / Smart Search Product</span>';
-      document.getElementById('submitBtnLabel').innerText = "Save & Publish to Sheet";
-      document.getElementById('cancelEditBtn').classList.add('hidden');
-    }
-
-    function handleAdminSearch(val) {
-      adminSearchQuery = (val || "").trim().toLowerCase();
-      document.getElementById('adminClearSearchBtn').classList.toggle('hidden', !adminSearchQuery);
-      renderAdminList();
-    }
-
-    function clearAdminSearch() {
-      document.getElementById('adminSearchInput').value = "";
-      adminSearchQuery = "";
-      document.getElementById('adminClearSearchBtn').classList.add('hidden');
-      renderAdminList();
-    }
-
-    function renderAdminList() {
-      var box = document.getElementById('adminInventoryList');
-      var totalBadge = document.getElementById('adminTotalItems');
-
-      var filtered = window.STORE_CATALOG.filter(function(p) {
-        if (!adminSearchQuery) return true;
-        return (p.product_name || "").toLowerCase().includes(adminSearchQuery) ||
-               (p.category || "").toLowerCase().includes(adminSearchQuery) ||
-               String(p.ean || "").toLowerCase().includes(adminSearchQuery);
+    function switchAdminTab(t) {
+      ['orders','stock','banners','sync'].forEach(tab => {
+        document.getElementById(`admTab-${tab}`).classList.toggle('hidden', tab !== t);
+        var b = document.getElementById(`admTabBtn-${tab}`);
+        b.classList.toggle('border-[#1864ab]', tab === t);
+        b.classList.toggle('text-[#1864ab]', tab === t);
+        b.classList.toggle('border-transparent', tab !== t);
       });
+      if (t === 'orders') renderAdminOrders();
+      if (t === 'stock') renderAdminList();
+      if (t === 'banners') renderAdminBanners();
+    }
 
-      totalBadge.innerText = `${filtered.length} / ${window.STORE_CATALOG.length} Items`;
-
-      if (filtered.length === 0) {
-        box.innerHTML = '<p class="text-center text-xs text-slate-400 py-4">କୌଣସି ପୁରୁଣା ସାମଗ୍ରୀ ମିଳିଲା ନାହିଁ।</p>';
+    function renderAdminOrders() {
+      var box = document.getElementById('adminOrdersContainer');
+      var orders = getMyOrders();
+      if (!orders.length) {
+        box.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">କୌଣସି ଅର୍ଡର ନାହିଁ।</p>';
         return;
       }
 
-      box.innerHTML = filtered.map((p) => {
-        var originalIdx = window.STORE_CATALOG.findIndex(x => String(x.ean) === String(p.ean));
-        return `
-          <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-            <div class="flex items-center gap-2 flex-1 pr-2">
-              <img src="${p.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80'}" class="w-9 h-9 object-contain rounded bg-white p-0.5 border border-slate-100 shrink-0">
-              <div>
-                <h5 class="font-bold text-slate-800 line-clamp-1">${p.product_name}</h5>
-                <span class="text-[11px] text-slate-500 block leading-tight">Rs.${p.selling_price} | MRP: ${p.mrp} | Stock: ${p.stock_qty || 10} | ${p.category}</span>
-              </div>
+      box.innerHTML = orders.map((o, oIdx) => {
+        var mapsLink = `https://www.google.com/maps/dir/?api=1&origin=${STORE_LAT},${STORE_LNG}&destination=${o.lat||STORE_LAT},${o.lng||STORE_LNG}`;
+
+        var itemsEditorHtml = (o.items||[]).map((it, itIdx) => `
+          <div class="flex items-center justify-between text-xs bg-slate-50 p-1.5 rounded-lg">
+            <span class="font-bold line-clamp-1 flex-1">${it.name}</span>
+            <div class="flex items-center gap-1.5 ml-2">
+              <span class="text-slate-500">Qty: <b>${it.qty}</b></span>
+              <button onclick="changeAdminOrderQty(${oIdx}, ${itIdx}, -1)" class="w-5 h-5 rounded bg-slate-200 font-bold">-</button>
+              <button onclick="changeAdminOrderQty(${oIdx}, ${itIdx}, 1)" class="w-5 h-5 rounded bg-slate-200 font-bold">+</button>
+              <button onclick="removeAdminOrderItem(${oIdx}, ${itIdx})" class="text-rose-600 font-bold ml-1"><i class="ph-bold ph-trash"></i></button>
             </div>
-            <div class="flex items-center gap-1.5 shrink-0">
-              <button onclick="editAdminProduct(${originalIdx})" class="px-2 py-1 bg-amber-500 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 shadow-xs hover:bg-amber-600">
-                <i class="ph-bold ph-pencil-simple"></i> Edit
-              </button>
-              <button onclick="deleteAdminProduct(${originalIdx})" class="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg">
-                <i class="ph-bold ph-trash text-xs"></i>
-              </button>
+          </div>
+        `).join('');
+
+        return `
+          <div class="bg-white p-3 rounded-2xl border border-slate-200 space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="font-black text-xs text-slate-900">#${o.id} - ${o.name}</span>
+              <span class="text-[10px] bg-blue-100 text-[#1864ab] font-black px-2 py-0.5 rounded-md">Stage ${o.stage||1}/5</span>
+            </div>
+            <div class="text-[11px] text-slate-600">${o.phone} · ${o.address}</div>
+            <div class="space-y-1">${itemsEditorHtml}</div>
+            <div class="flex justify-between items-center text-xs font-black pt-1 border-t border-slate-100">
+              <a href="${mapsLink}" target="_blank" class="text-[#1864ab] flex items-center gap-1"><i class="ph-bold ph-navigation-arrow"></i> Google Maps Route</a>
+              <span>Bill: Rs.${money(o.total)}</span>
+            </div>
+            <div class="grid grid-cols-4 gap-1 pt-1">
+              <button onclick="setOrderFulfillmentStage(${oIdx}, 2)" class="py-1 rounded bg-sky-600 text-white text-[10px] font-bold">2. Accept</button>
+              <button onclick="setOrderFulfillmentStage(${oIdx}, 3)" class="py-1 rounded bg-amber-500 text-white text-[10px] font-bold">3. Packing</button>
+              <button onclick="setOrderFulfillmentStage(${oIdx}, 4)" class="py-1 rounded bg-orange-600 text-white text-[10px] font-bold">4. Dispatch</button>
+              <button onclick="setOrderFulfillmentStage(${oIdx}, 5)" class="py-1 rounded bg-emerald-600 text-white text-[10px] font-bold">5. Delivered</button>
             </div>
           </div>
         `;
       }).join('');
     }
 
-    function deleteAdminProduct(idx) {
-      var p = window.STORE_CATALOG[idx];
-      if (confirm(`ଆପଣ "${p.product_name}" କୁ ଡିଲିଟ୍ କରିବାକୁ ଚାହାନ୍ତି କି?`)) {
-        window.STORE_CATALOG.splice(idx, 1);
-        localStorage.setItem('munna_store_catalog', JSON.stringify(window.STORE_CATALOG));
-        renderAdminList();
-        render();
+    function changeAdminOrderQty(oIdx, itIdx, delta) {
+      var orders = getMyOrders();
+      orders[oIdx].items[itIdx].qty += delta;
+      if (orders[oIdx].items[itIdx].qty <= 0) {
+        orders[oIdx].items.splice(itIdx, 1);
+      }
+      orders[oIdx].total = orders[oIdx].items.reduce((acc, curr) => acc + (parseFloat(curr.price||0) * curr.qty), 0);
+      setMyOrders(orders);
+      renderAdminOrders();
+    }
+
+    function removeAdminOrderItem(oIdx, itIdx) {
+      var orders = getMyOrders();
+      orders[oIdx].items.splice(itIdx, 1);
+      orders[oIdx].total = orders[oIdx].items.reduce((acc, curr) => acc + (parseFloat(curr.price||0) * curr.qty), 0);
+      setMyOrders(orders);
+      renderAdminOrders();
+    }
+
+    function setOrderFulfillmentStage(oIdx, stageNum) {
+      var orders = getMyOrders();
+      orders[oIdx].stage = stageNum;
+      setMyOrders(orders);
+      renderAdminOrders();
+      alert(`Order #${orders[oIdx].id} updated to Stage ${stageNum}!`);
+    }
+
+    // --- BANNER MANAGER ---
+    function renderAdminBanners() {
+      var box = document.getElementById('adminBannerList');
+      box.innerHTML = banners.map((b, idx) => `
+        <div class="flex items-center justify-between p-2 bg-white rounded-xl border border-slate-200 text-xs">
+          <div class="flex items-center gap-2">
+            <img src="${b.img}" class="w-10 h-7 object-cover rounded">
+            <span class="font-bold line-clamp-1">${b.title}</span>
+          </div>
+          <button onclick="deleteBanner(${idx})" class="text-rose-600 font-bold px-2 py-1"><i class="ph-bold ph-trash"></i></button>
+        </div>
+      `).join('');
+    }
+
+    function addBanner() {
+      if (banners.length >= 5) { alert("ସର୍ବାଧିକ ୫ଟି ବ୍ୟାନର୍ ଅନୁମୋଦିତ।"); return; }
+      var img = document.getElementById('newBannerImg').value.trim();
+      var title = document.getElementById('newBannerTitle').value.trim();
+      if (!img || !title) { alert("Image URL ଓ Title ଦିଅନ୍ତୁ!"); return; }
+      banners.push({ id: Date.now(), title, img });
+      localStorage.setItem('SHOP_BANNERS', JSON.stringify(banners));
+      initCarousel();
+      renderAdminBanners();
+      document.getElementById('newBannerImg').value = '';
+      document.getElementById('newBannerTitle').value = '';
+    }
+
+    function deleteBanner(idx) {
+      banners.splice(idx, 1);
+      localStorage.setItem('SHOP_BANNERS', JSON.stringify(banners));
+      initCarousel();
+      renderAdminBanners();
+    }
+
+    // --- JIOMART & WEB SMART PRODUCT SEARCH ---
+    function setSearchSource(src) {
+      currentSearchSource = src;
+      var jioBtn = document.getElementById('toggleJioBtn');
+      var webBtn = document.getElementById('toggleWebBtn');
+      var pinBox = document.getElementById('pincodeWrapper');
+      if (src === 'jiomart') {
+        jioBtn.className = "px-2 py-0.5 rounded-md bg-[#1864ab] text-white";
+        webBtn.className = "px-2 py-0.5 rounded-md text-slate-600";
+        pinBox.classList.remove('hidden');
+      } else {
+        webBtn.className = "px-2 py-0.5 rounded-md bg-[#1864ab] text-white";
+        jioBtn.className = "px-2 py-0.5 rounded-md text-slate-600";
+        pinBox.classList.add('hidden');
       }
     }
 
+    async function triggerLiveSearch() {
+      var q = document.getElementById('newProdName').value.trim();
+      var pin = document.getElementById('searchPincode').value.trim() || '752106';
+      if (!q || q.length < 2) { alert("ସାମଗ୍ରୀର ନାମ ଲେଖନ୍ତୁ!"); return; }
+
+      var searchBtn = document.getElementById('smartSearchBtn');
+      searchBtn.disabled = true;
+      searchBtn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> Searching...';
+
+      var dropdown = document.getElementById('imageDropdownContainer');
+      var grid = document.getElementById('imageGridResults');
+      dropdown.classList.remove('hidden');
+      grid.innerHTML = '<div class="col-span-full py-4 text-center text-xs text-blue-600 font-bold"><i class="ph-bold ph-spinner animate-spin"></i> JioMart ଲାଇଭ୍ ଡାଟା ଖୋଜା ଚାଲିଛି...</div>';
+
+      var results = [];
+      try {
+        var targetJioUrl = `https://www.jiomart.com/api/service/application/catalog/v1.0/products?q=${encodeURIComponent(q)}&page_size=12&page_no=1`;
+        var proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetJioUrl)}`;
+        var proxyRes = await fetch(proxyUrl);
+        var proxyJson = await proxyRes.json();
+        if (proxyJson && proxyJson.contents) {
+          var jioData = JSON.parse(proxyJson.contents);
+          var items = jioData.items || (jioData.data && jioData.data.items) || [];
+          items.forEach(item => {
+            var imgUrl = (item.medias && item.medias[0]) ? item.medias[0].url : "";
+            var mrp = item.price ? (item.price.marked ? (item.price.marked.min || item.price.marked) : "") : "";
+            var sp = item.price ? (item.price.effective ? (item.price.effective.min || item.price.effective) : "") : "";
+            var cat = (item.hierarchy && item.hierarchy.l3_category) ? item.hierarchy.l3_category.name : "Grocery";
+            if (imgUrl) results.push({ title: item.name || q, url: imgUrl, mrp: String(mrp), sp: String(sp), cat: cat, source: "JioMart" });
+          });
+        }
+      } catch(e){}
+
+      searchBtn.disabled = false;
+      searchBtn.innerHTML = '<i class="ph-bold ph-magnifying-glass"></i> Search';
+
+      if (results.length === 0) {
+        grid.innerHTML = '<p class="col-span-full text-xs text-rose-500 font-bold text-center py-2">କୌଣସି ଫଳାଫଳ ମିଳିଲା ନାହିଁ।</p>';
+        return;
+      }
+
+      grid.innerHTML = results.map(item => `
+        <div onclick="selectProductToForm('${encodeURIComponent(item.url)}', '${encodeURIComponent(item.title)}', '${encodeURIComponent(item.cat)}', '${item.mrp}', '${item.sp}')"
+             class="cursor-pointer bg-white p-2 rounded-xl border border-slate-200 hover:border-blue-500 text-center flex flex-col items-center">
+          <img src="${item.url}" class="w-full h-20 object-contain mb-1">
+          <span class="text-[10px] font-bold text-slate-800 line-clamp-1">${item.title}</span>
+          <span class="text-[10px] font-extrabold text-emerald-600 mt-0.5">Rs.${item.sp}</span>
+        </div>
+      `).join('');
+    }
+
+    function selectProductToForm(url, title, cat, mrp, sp) {
+      document.getElementById('newProdImg').value = decodeURIComponent(url);
+      updateImagePreview(decodeURIComponent(url));
+      document.getElementById('newProdName').value = decodeURIComponent(title);
+      document.getElementById('newProdCat').value = decodeURIComponent(cat);
+      if (mrp) document.getElementById('newProdMRP').value = mrp;
+      if (sp) document.getElementById('newProdSP').value = sp;
+      closeImageDropdown();
+    }
+    function closeImageDropdown() { document.getElementById('imageDropdownContainer').classList.add('hidden'); }
+    function updateImagePreview(u) {
+      var box = document.getElementById('imgPreviewBox');
+      var img = document.getElementById('imgPreviewTag');
+      if (u && u.startsWith('http')) { img.src = u; box.classList.remove('hidden'); } else { box.classList.add('hidden'); }
+    }
+
+    // --- CATALOG CRUD & SYNC ---
     async function handleAdminFormSubmit(e) {
       e.preventDefault();
-      var submitBtn = document.getElementById('adminFormSubmitBtn');
-      submitBtn.disabled = true;
-      submitBtn.innerText = "Saving to Google Sheet...";
-
       var isEdit = document.getElementById('editEan').value !== "";
-      var ean = isEdit ? document.getElementById('editEan').value : ("ean-" + Date.now());
-      var rowIndex = document.getElementById('editRowIndex').value;
-
+      var ean = isEdit ? document.getElementById('editEan').value : ("EAN-" + Date.now());
       var nm = document.getElementById('newProdName').value.trim();
       var mrp = document.getElementById('newProdMRP').value.trim();
       var sp = document.getElementById('newProdSP').value.trim();
       var st = document.getElementById('newProdStock').value.trim();
       var cat = document.getElementById('newProdCat').value.trim() || 'General';
-      var img = document.getElementById('newProdImg').value.trim();
+      var img = document.getElementById('newProdImg').value.trim() || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400";
 
-      var prodObj = {
-        rowIndex: rowIndex ? Number(rowIndex) : undefined,
-        ean: ean,
-        product_name: nm,
-        mrp: mrp,
-        selling_price: sp,
-        stock_qty: st,
-        image_url: img || "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80",
-        category: cat
-      };
+      var prodObj = { ean, product_name: nm, mrp, selling_price: sp, stock_qty: st, image_url: img, category: cat };
 
       if (isEdit) {
-        var existingIdx = window.STORE_CATALOG.findIndex(x => String(x.ean) === String(ean));
-        if (existingIdx !== -1) window.STORE_CATALOG[existingIdx] = prodObj;
+        var idx = window.STORE_CATALOG.findIndex(x => String(x.ean) === String(ean));
+        if (idx !== -1) window.STORE_CATALOG[idx] = prodObj;
       } else {
         window.STORE_CATALOG.unshift(prodObj);
       }
@@ -1331,39 +1226,84 @@
       var hook = localStorage.getItem('munna_sheet_webhook');
       if (hook) {
         try {
-          await fetch(hook, {
+          fetch(hook, {
             method: 'POST',
             mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: isEdit ? "EDIT_PRODUCT" : "ADD_PRODUCT",
-              rowIndex: rowIndex ? Number(rowIndex) : undefined,
-              ean: ean,
-              name: nm,
-              mrp: mrp,
-              sellingPrice: sp,
-              stock: st,
-              category: cat,
-              image: prodObj.image_url
-            })
+            body: JSON.stringify({ action: isEdit ? "EDIT_PRODUCT" : "ADD_PRODUCT", ean, name: nm, mrp, sellingPrice: sp, stock: st, category: cat, image: img })
           });
         } catch(err){}
       }
 
-      submitBtn.disabled = false;
-      alert(isEdit ? "ପ୍ରଡକ୍ଟ ସଫଳତାର ସହ Update ହେଲା!" : "ନୂଆ ପ୍ରଡକ୍ଟ ସଫଳତାର ସହ ଯୋଡ଼ାଗଲା!");
+      alert("✅ ସଫଳତାର ସହ ସେଭ୍ ହେଲା!");
       resetAdminForm();
       renderAdminList();
       render();
     }
 
+    function resetAdminForm() {
+      document.getElementById('editEan').value = '';
+      document.getElementById('newProdName').value = '';
+      document.getElementById('newProdMRP').value = '';
+      document.getElementById('newProdSP').value = '';
+      document.getElementById('newProdStock').value = '10';
+      document.getElementById('newProdCat').value = '';
+      document.getElementById('newProdImg').value = '';
+      updateImagePreview('');
+      closeImageDropdown();
+      document.getElementById('cancelEditBtn').classList.add('hidden');
+    }
+
+    function renderAdminList() {
+      var box = document.getElementById('adminInventoryList');
+      box.innerHTML = window.STORE_CATALOG.map((p, idx) => `
+        <div class="flex items-center justify-between p-2 bg-white rounded-xl border border-slate-200 text-xs">
+          <div>
+            <h5 class="font-bold text-slate-800">${p.product_name}</h5>
+            <span class="text-[10px] text-slate-500">Rs.${p.selling_price} | Stock: ${p.stock_qty||10}</span>
+          </div>
+          <div class="flex gap-1">
+            <button onclick="editAdminProduct(${idx})" class="px-2 py-1 bg-amber-500 text-white rounded font-bold text-[10px]">Edit</button>
+            <button onclick="deleteAdminProduct(${idx})" class="px-2 py-1 bg-rose-50 text-rose-600 rounded font-bold text-[10px]">Delete</button>
+          </div>
+        </div>
+      `).join('');
+      document.getElementById('adminTotalItems').innerText = `${window.STORE_CATALOG.length} Items`;
+    }
+
+    function editAdminProduct(idx) {
+      var p = window.STORE_CATALOG[idx];
+      document.getElementById('editEan').value = p.ean;
+      document.getElementById('newProdName').value = p.product_name;
+      document.getElementById('newProdMRP').value = p.mrp;
+      document.getElementById('newProdSP').value = p.selling_price;
+      document.getElementById('newProdStock').value = p.stock_qty || 10;
+      document.getElementById('newProdCat').value = p.category;
+      document.getElementById('newProdImg').value = p.image_url;
+      updateImagePreview(p.image_url);
+      document.getElementById('cancelEditBtn').classList.remove('hidden');
+      document.getElementById('adminFormCard').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function deleteAdminProduct(idx) {
+      if (confirm("ଡିଲିଟ୍ କରିବାକୁ ଚାହାନ୍ତି କି?")) {
+        window.STORE_CATALOG.splice(idx, 1);
+        localStorage.setItem('munna_store_catalog', JSON.stringify(window.STORE_CATALOG));
+        renderAdminList();
+        render();
+      }
+    }
+
+    function saveWebhook() {
+      var u = document.getElementById('webhookInput').value.trim();
+      localStorage.setItem('munna_sheet_webhook', u);
+      alert("Webhook Saved!");
+      syncFromGoogleSheet();
+    }
+
     async function syncFromGoogleSheet() {
       var hook = localStorage.getItem('munna_sheet_webhook');
       if (!hook) return;
-
-      var countBadge = document.getElementById("productCountBadge");
-      if (countBadge) countBadge.innerText = "ସିଙ୍କ୍ ହେଉଛି...";
-
       try {
         var res = await fetch(hook);
         var data = await res.json();
@@ -1371,36 +1311,127 @@
           window.STORE_CATALOG = data;
           localStorage.setItem('munna_store_catalog', JSON.stringify(data));
           render();
-          if (typeof renderAdminList === 'function') renderAdminList();
+          renderAdminList();
         }
-      } catch (err) {
-        if (countBadge) countBadge.innerText = `${window.STORE_CATALOG.length} ଟି ସାମଗ୍ରୀ`;
+      } catch(e){}
+    }
+    async function manualSync() {
+      await syncFromGoogleSheet();
+      alert("Google Sheets Sync Complete!");
+    }
+
+    // --- LOCAL STORAGE HELPERS ---
+    function getTgUser() { try { return (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null; } catch (e) { return null; } }
+    function uidKey(base) { var u = getTgUser(); return base + '_' + (u && u.id ? u.id : 'anon'); }
+    function getAddresses() { try { return JSON.parse(localStorage.getItem(uidKey('munna_addresses')) || '[]'); } catch(e){ return []; } }
+    function setAddresses(a) { try { localStorage.setItem(uidKey('munna_addresses'), JSON.stringify(a)); } catch(e){} }
+    function getMyOrders() { try { return JSON.parse(localStorage.getItem('MUNA_ALL_ORDERS') || '[]'); } catch(e){ return []; } }
+    function setMyOrders(o) { try { localStorage.setItem('MUNA_ALL_ORDERS', JSON.stringify(o)); } catch(e){} }
+
+    function sendToBot(payload) {
+      if (tg && tg.sendData) { try { tg.sendData(JSON.stringify(payload)); return true; } catch(e){} }
+      return false;
+    }
+
+    function prefillOrderForm() {
+      var u = getTgUser();
+      var addrs = getAddresses();
+      var def = addrs.find(a => a.isDefault) || addrs[0];
+      if (def) {
+        document.getElementById('orderCustName').value = def.name;
+        document.getElementById('orderCustPhone').value = def.phone;
+        document.getElementById('orderCustAddress').value = def.address;
+      } else if (u) {
+        document.getElementById('orderCustName').value = u.first_name || '';
       }
     }
 
-    async function manualSync() {
-      var btn = document.getElementById('syncNowBtn');
-      btn.innerText = "...";
-      await syncFromGoogleSheet();
-      btn.innerHTML = '<i class="ph-bold ph-arrows-clockwise"></i> <span>Sync</span>';
-      alert("Google Sheet ରୁ ସମସ୍ତ ସାମଗ୍ରୀ ସଫଳତାର ସହ ସିଙ୍କ୍ ହେଲା!");
+    function renderSavedAddressPick() {
+      var box = document.getElementById('savedAddressPick');
+      var list = getAddresses();
+      if (!list.length) { box.innerHTML = ''; return; }
+      box.innerHTML = list.slice(0,2).map(a => `
+        <div onclick="pickSavedAddress('${a.id}')" class="p-2 rounded-xl border border-slate-200 bg-white cursor-pointer text-[11px]">
+          <span class="font-bold">${a.name}</span> · <span class="text-slate-500">${a.phone}</span>
+          <p class="text-slate-600 line-clamp-1">${a.address}</p>
+        </div>
+      `).join('');
     }
 
+    function pickSavedAddress(id) {
+      var a = getAddresses().find(x => x.id === id);
+      if (!a) return;
+      document.getElementById('orderCustName').value = a.name;
+      document.getElementById('orderCustPhone').value = a.phone;
+      document.getElementById('orderCustAddress').value = a.address;
+    }
+
+    function openAddressForm(id) {
+      document.getElementById('addressForm').classList.remove('hidden');
+      document.getElementById('addrEditId').value = id || '';
+    }
+    function closeAddressForm() { document.getElementById('addressForm').classList.add('hidden'); }
+    function saveAddressForm() {
+      var id = document.getElementById('addrEditId').value;
+      var name = document.getElementById('addrName').value.trim();
+      var phone = document.getElementById('addrPhone').value.trim();
+      var address = document.getElementById('addrText').value.trim();
+      var isDefault = document.getElementById('addrDefault').checked;
+      if (!name || !phone || !address) { alert("ସମସ୍ତ ତଥ୍ୟ ପୂରଣ କରନ୍ତୁ!"); return; }
+      var list = getAddresses();
+      if (isDefault) list.forEach(a => a.isDefault = false);
+      if (id) {
+        var a = list.find(x => x.id === id);
+        if (a) { a.name = name; a.phone = phone; a.address = address; a.isDefault = isDefault; }
+      } else {
+        list.push({ id: 'A' + Date.now(), name, phone, address, isDefault: isDefault || list.length === 0 });
+      }
+      setAddresses(list);
+      closeAddressForm();
+      renderAddressList();
+    }
+    function renderAddressList() {
+      var box = document.getElementById('addressList');
+      var list = getAddresses();
+      if (!list.length) { box.innerHTML = '<p class="text-center text-xs text-slate-400 py-6">କୌଣସି ଠିକଣା ସେଭ୍ ହୋଇନାହିଁ।</p>'; return; }
+      box.innerHTML = list.map(a => `
+        <div class="bg-white p-3 rounded-2xl border border-slate-200">
+          <div class="font-bold text-xs">${a.name} · ${a.phone}</div>
+          <div class="text-[11px] text-slate-600 mt-0.5">${a.address}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderProfile() {
+      var u = getTgUser();
+      var name = (u && u.first_name) || 'Customer';
+      document.getElementById('profName').innerText = name;
+      document.getElementById('profAvatar').innerText = name.charAt(0).toUpperCase();
+      document.getElementById('profOrderCount').innerText = getMyOrders().length;
+      document.getElementById('profAddrCount').innerText = getAddresses().length;
+    }
+
+    function handleSearch(v) { query = v || ""; document.getElementById('clearSearchBtn').classList.toggle('hidden', !query); render(); }
+    function clearSearch() { document.getElementById('searchInput').value = ""; query = ""; document.getElementById('clearSearchBtn').classList.add('hidden'); render(); }
+    function toggleLang() {
+      isEnglish = !isEnglish;
+      document.getElementById('langBtnText').innerText = isEnglish ? "ଓଡ଼ିଆ" : "English";
+      document.getElementById('lblStoreName').innerText = isEnglish ? "MUNNA MOBILE & GROCERY" : "ମୁନ୍ନା ମୋବାଇଲ୍ ଆଣ୍ଡ୍ ଗ୍ରୋସରୀ";
+    }
+
+    // --- INITIALIZATION ---
     window.addEventListener('DOMContentLoaded', () => {
-      // The bot passes the Sheet webhook as ?sheet=<url> so the catalog
-      // auto-syncs from Google Sheets with no in-app setup required.
       try {
         var sp = new URLSearchParams(window.location.search);
-        var sheetParam = sp.get('sheet');
-        if (sheetParam) {
-          localStorage.setItem('munna_sheet_webhook', sheetParam);
-        }
-      } catch (e) {}
+        var sUrl = sp.get('sheet');
+        if (sUrl) localStorage.setItem('munna_sheet_webhook', sUrl);
+      } catch(e){}
+
+      initCarousel();
+      render();
       prefillOrderForm();
       renderProfile();
       updateCartBadge();
-      showScreen('home');
-      render();
       syncFromGoogleSheet();
     });
   </script>
