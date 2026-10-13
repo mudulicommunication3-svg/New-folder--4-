@@ -1427,7 +1427,13 @@ def _parse_webapp_payload(raw: str) -> List[Dict[str, Any]]:
 
 
 async def handle_webapp_data(update, context) -> None:
-    """Checkout payload routed back from the Mini App (WEB_APP_DATA)."""
+    """Mini App payload (SAVE_ADDRESS / ORDER). Orders are placed immediately.
+
+    The Mini App collects the whole checkout (items + address + payment) and
+    posts it back here. We place the order straight through db.place_order so it
+    completes in one step (no multi-step chat dance) and confirm with the order
+    id. SAVE_ADDRESS just refreshes the saved address book entry for the user.
+    """
     message = update.effective_message
     user = update.effective_user
     if message is None or user is None:
@@ -1436,64 +1442,90 @@ async def handle_webapp_data(update, context) -> None:
     raw = getattr(web_data, "data", "") if web_data is not None else ""
     if not raw:
         return
+
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        parsed = None
+    action = ""
+    name = phone = address = payment = order_id = ""
+    if isinstance(parsed, dict):
+        action = str(parsed.get("action") or "").strip().upper()
+        name = str(parsed.get("customer") or parsed.get("name") or "").strip()
+        phone = str(parsed.get("phone") or "").strip()
+        address = str(parsed.get("address") or "").strip()
+        payment = str(parsed.get("payment") or "COD").strip() or "COD"
+        order_id = str(parsed.get("orderId") or "").strip()
+
+    # Address book sync from the Mini App (no order placed).
+    if action == "SAVE_ADDRESS":
+        try:
+            await asyncio.to_thread(db.save_address, user.id, name, address, phone)
+            await message.reply_text("Address saved. (\u091c\u093e \u0928\u093e\u0939\u093f\u0902)")
+        except Exception:  # noqa: BLE001
+            logger.warning("Could not save address for %s", user.id, exc_info=True)
+            await message.reply_text("Could not save the address right now.")
+        return
+
+    # Place the Mini App order immediately.
     try:
         items = _parse_webapp_payload(raw)
     except ValueError as exc:
-        await message.reply_text(f"❌ {exc}")
+        await message.reply_text(f"Order could not be placed: {exc}")
         return
-    context.user_data["cart"] = {it["ean"]: it["qty"] for it in items}
-    context.user_data["checkout_channel"] = "miniapp"
+
     try:
-        context.user_data["_uid"] = int(user.id)
-    except Exception:  # noqa: BLE001
-        pass
-    # The Mini App form may already collect name/phone/address - use them so the
-    # customer does not retype everything in chat (falls back to the old flow).
-    web_name = web_phone = web_address = ""
-    try:
-        parsed = json.loads(raw)
-        if isinstance(parsed, dict):
-            web_name = str(parsed.get("customer") or parsed.get("name") or "").strip()
-            web_phone = str(parsed.get("phone") or "").strip()
-            web_address = str(parsed.get("address") or "").strip()
-    except Exception:  # noqa: BLE001 - items already parsed above
-        pass
-    if web_name and web_phone and web_address:
-        # Remember this address for the customer so the next checkout (Mini App
-        # or chat) is prefilled - one saved address per Telegram user.
-        try:
-            db.save_address(user.id, web_name, web_address, web_phone)
-        except Exception:  # noqa: BLE001 - never block checkout on a Sheets error
-            logger.warning(
-                "Could not save Mini App address for %s", user.id, exc_info=True
-            )
-        context.user_data["checkout_name"] = web_name
-        context.user_data["checkout_address"] = web_address
-        context.user_data["checkout_phone"] = web_phone
-        context.user_data["state"] = orders.STATE_CHECKOUT_LOCATION
-        try:
-            from admin_handler import _mark_consumed as _mc0
-            _mc0(message.message_id)
-        except Exception:  # noqa: BLE001 - guard must never break checkout
-            pass
+        result = await asyncio.to_thread(
+            db.place_order,
+            items,
+            name,
+            phone,
+            address,
+            "miniapp",
+            user.id,
+            order_id or None,
+        )
+    except ValueError as exc:
+        await message.reply_text(f"Order could not be placed: {exc}")
+        return
+    except Exception:  # noqa: BLE001 - DB/API failure
+        logger.error("Mini App order failed for %s", user.id, exc_info=True)
         await message.reply_text(
-            "<b>Mini App order received!</b>\n\n"
-            "Optionally share your <b>location</b> (clip -> Location) for exact "
-            "delivery, or type <b>skip</b> to place the order:",
-            parse_mode=ParseMode.HTML,
+            "Something went wrong placing your order. Please try again."
         )
         return
-    context.user_data["state"] = orders.STATE_CHECKOUT_ADDRESS
-    try:
-        from admin_handler import _mark_consumed as _mc
-        _mc(message.message_id)
-    except Exception:  # noqa: BLE001 - guard must never break checkout
-        pass
+
+    # Remember the address so the next checkout is prefilled.
+    if name and phone and address:
+        try:
+            await asyncio.to_thread(db.save_address, user.id, name, address, phone)
+        except Exception:  # noqa: BLE001
+            logger.warning("Could not save address for %s", user.id, exc_info=True)
+
+    # Keep the chat cart in sync with the Mini App order.
+    context.user_data.pop("cart", None)
+    context.user_data.pop("state", None)
+
+    oid = result.get("order_id", "")
+    total = result.get("total", 0)
     await message.reply_text(
-        "🛍️ <b>Mini App order received!</b>\n\n"
-        "📍 Please send your <b>delivery address</b>:",
-        parse_mode=ParseMode.HTML,
+        f"Your order is placed!\n\n"
+        f"Order ID: {oid}\n"
+        f"Total: Rs.{total}\n"
+        f"Payment: {payment}\n\n"
+        f"Track it under My Orders. Thank you!"
     )
+    # Best-effort admin notification.
+    try:
+        for admin_id in orders.admin_ids():
+            await context.bot.send_message(
+                admin_id,
+                f"New Mini App order {oid}\nCustomer: {name}\nPhone: {phone}\n"
+                f"Address: {address}\nPayment: {payment}\nTotal: Rs.{total}",
+            )
+    except Exception:  # noqa: BLE001
+        pass
+
 
 
 async def handle_store_text(update, context) -> bool:

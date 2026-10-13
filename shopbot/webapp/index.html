@@ -16,7 +16,7 @@
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 </style>
 </head>
-<body class="pb-28 antialiased">
+<body class="pb-32 antialiased">
 
   <header class="bg-[#1864ab] text-white px-4 pt-3 pb-3 sticky top-0 z-40 shadow-sm">
     <div class="max-w-md mx-auto flex items-center justify-between gap-2">
@@ -37,12 +37,9 @@
           <i class="ph-bold ph-translate"></i>
           <span id="langBtnText">English</span>
         </button>
-        <button onclick="toggleProfileDrawer()" id="navLoginBtn" class="px-2.5 py-1 rounded-lg bg-[#ffd43b] text-slate-950 text-xs font-black flex items-center gap-1 shadow-xs hover:bg-yellow-400">
+        <button onclick="showScreen('profile')" id="navLoginBtn" class="px-2.5 py-1 rounded-lg bg-[#ffd43b] text-slate-950 text-xs font-black flex items-center gap-1 shadow-xs hover:bg-yellow-400">
           <i class="ph-bold ph-user"></i>
           <span id="navLoginText">ଲଗଇନ୍</span>
-        </button>
-        <button onclick="openAdminModal()" title="Admin Control" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white">
-          <i class="ph-bold ph-lock-key text-sm"></i>
         </button>
       </div>
     </div>
@@ -108,7 +105,7 @@
     </div>
   </main>
 
-  <div class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-xl">
+  <div id="floatingCartBar" class="fixed bottom-[58px] left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-xl">
     <div class="max-w-md mx-auto px-4 py-2.5 flex items-center justify-between">
       <div onclick="openCartDrawer()" class="cursor-pointer flex items-center gap-2.5">
         <div class="relative w-10 h-10 rounded-xl bg-[#1864ab] text-white flex items-center justify-center">
@@ -126,6 +123,28 @@
       </button>
     </div>
   </div>
+
+  <!-- Bottom navigation (Flipkart/JioMart style) -->
+  <nav id="bottomNav" class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-2xl">
+    <div class="max-w-md mx-auto grid grid-cols-5 text-[9px] font-bold text-slate-500">
+      <button onclick="showScreen('home')" data-nav="home" class="nav-btn flex flex-col items-center py-2 gap-0.5">
+        <i class="ph-bold ph-house text-lg"></i><span>Home</span>
+      </button>
+      <button onclick="showScreen('orders')" data-nav="orders" class="nav-btn flex flex-col items-center py-2 gap-0.5">
+        <i class="ph-bold ph-receipt text-lg"></i><span>Orders</span>
+      </button>
+      <button onclick="openCartDrawer()" data-nav="cart" class="nav-btn flex flex-col items-center py-2 gap-0.5 relative">
+        <i class="ph-bold ph-shopping-cart text-lg"></i><span>Cart</span>
+        <span id="navCartBadge" class="hidden absolute top-0.5 right-4 min-w-4 h-4 px-1 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center">0</span>
+      </button>
+      <button onclick="showScreen('address')" data-nav="address" class="nav-btn flex flex-col items-center py-2 gap-0.5">
+        <i class="ph-bold ph-map-pin text-lg"></i><span>Address</span>
+      </button>
+      <button onclick="showScreen('profile')" data-nav="profile" class="nav-btn flex flex-col items-center py-2 gap-0.5">
+        <i class="ph-bold ph-user-circle text-lg"></i><span>Profile</span>
+      </button>
+    </div>
+  </nav>
 
   <div id="cartDrawerBackdrop" onclick="closeCartDrawer()" class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 hidden opacity-0 transition-opacity duration-300"></div>
   <div id="cartDrawer" class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-3xl shadow-2xl z-50 transform translate-y-full transition-transform duration-300 ease-out flex flex-col max-h-[85vh]">
@@ -146,15 +165,67 @@
           <span id="summaryTotal" class="text-sm font-extrabold text-[#1864ab]">Rs.0</span>
         </div>
       </div>
-      <div class="mt-2.5 space-y-2">
-        <input type="text" id="orderCustName" placeholder="ଆପଣଙ୍କ ନାମ (Name)" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white outline-none">
-        <input type="tel" id="orderCustPhone" placeholder="ଫୋନ୍ ନମ୍ବର (Phone Number)" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white outline-none">
-        <input type="text" id="orderCustAddress" placeholder="ଡେଲିଭରୀ ଠିକଣା (Delivery Address)" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white outline-none">
+      <!-- Step: Cart summary -->
+      <div id="stepCart">
+        <button onclick="goCheckoutAddress()" class="mt-3 w-full py-2.5 rounded-xl bg-[#1864ab] hover:bg-blue-800 text-white font-extrabold text-xs shadow-md shadow-blue-600/30 active:scale-95 transition-all flex items-center justify-center gap-1.5">
+          <span>Checkout କରନ୍ତୁ (Proceed)</span>
+          <i class="ph-bold ph-arrow-right"></i>
+        </button>
       </div>
-      <button onclick="submitOrder()" class="mt-3 w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/30 active:scale-95 transition-all flex items-center justify-center gap-1.5">
-        <i class="ph-bold ph-paper-plane-tilt"></i>
-        <span>ଅର୍ଡର ନିଶ୍ଚିତ କରନ୍ତୁ (Confirm Order)</span>
-      </button>
+
+      <!-- Step: Address -->
+      <div id="stepAddress" class="hidden">
+        <div class="flex items-center justify-between mt-2 mb-1.5">
+          <span class="text-xs font-black text-slate-700">📍 ଡେଲିଭରୀ ଠିକଣା (Address)</span>
+          <button onclick="showScreen('address')" class="text-[11px] font-bold text-[#1864ab]">Manage</button>
+        </div>
+        <div id="savedAddressPick" class="space-y-1.5 mb-2"></div>
+        <div class="space-y-2">
+          <input type="text" id="orderCustName" placeholder="ଆପଣଙ୍କ ନାମ (Name)" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white outline-none">
+          <input type="tel" id="orderCustPhone" placeholder="ଫୋନ୍ ନମ୍ବର (Phone)" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white outline-none">
+          <textarea id="orderCustAddress" rows="2" placeholder="ଡେଲିଭରୀ ଠିକଣା (Delivery Address)" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white outline-none"></textarea>
+        </div>
+        <div class="flex gap-2 mt-3">
+          <button onclick="backToCart()" class="px-4 py-2.5 rounded-xl bg-slate-200 text-slate-700 font-bold text-xs">Back</button>
+          <button onclick="goCheckoutPayment()" class="flex-1 py-2.5 rounded-xl bg-[#1864ab] hover:bg-blue-800 text-white font-extrabold text-xs">Payment କରନ୍ତୁ</button>
+        </div>
+      </div>
+
+      <!-- Step: Payment -->
+      <div id="stepPayment" class="hidden">
+        <span class="text-xs font-black text-slate-700 block mt-2 mb-1.5">💳 ପେମେଣ୍ଟ ମାଧ୍ୟମ (Payment)</span>
+        <div class="space-y-1.5">
+          <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 bg-white cursor-pointer">
+            <input type="radio" name="payMethod" value="COD" checked class="accent-emerald-600">
+            <i class="ph-bold ph-truck text-emerald-600"></i>
+            <div><span class="text-xs font-bold block">Cash on Delivery</span><span class="text-[10px] text-slate-500">ପହଞ୍ଚିଲେ ଟଙ୍କା ଦିଅନ୍ତୁ</span></div>
+          </label>
+          <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 bg-white cursor-pointer">
+            <input type="radio" name="payMethod" value="UPI" class="accent-emerald-600">
+            <i class="ph-bold ph-currency-inr text-[#1864ab]"></i>
+            <div><span class="text-xs font-bold block">UPI (pay on delivery)</span><span class="text-[10px] text-slate-500">UPI ଦ୍ୱାରା ପୈଠ</span></div>
+          </label>
+        </div>
+        <div class="flex gap-2 mt-3">
+          <button onclick="backToAddress()" class="px-4 py-2.5 rounded-xl bg-slate-200 text-slate-700 font-bold text-xs">Back</button>
+          <button onclick="placeMiniOrder()" class="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5">
+            <i class="ph-bold ph-paper-plane-tilt"></i><span>Order ନିଶ୍ଚିତ କରନ୍ତୁ</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step: Success -->
+      <div id="stepSuccess" class="hidden text-center py-2">
+        <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-2">
+          <i class="ph-bold ph-check-circle text-2xl"></i>
+        </div>
+        <h4 class="font-black text-slate-800 text-sm">ଅର୍ଡର ସଫଳ ହେଲା!</h4>
+        <p class="text-xs text-slate-500 mt-0.5">Order ID: <span id="successOrderId" class="font-bold"></span></p>
+        <div class="flex gap-2 mt-3">
+          <button onclick="closeCartDrawer(); showScreen('orders')" class="flex-1 py-2.5 rounded-xl bg-slate-200 text-slate-700 font-bold text-xs">My Orders</button>
+          <button onclick="closeCartDrawer(); showScreen('home')" class="flex-1 py-2.5 rounded-xl bg-[#1864ab] text-white font-bold text-xs">Continue</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -332,6 +403,63 @@
           <div id="adminInventoryList" class="space-y-2 max-h-72 overflow-y-auto no-scrollbar"></div>
         </div>
 
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SCREENS (full-screen overlays) ============ -->
+  <div id="ordersScreen" class="screen fixed inset-0 z-50 bg-[#f1f3f6] hidden overflow-y-auto">
+    <div class="sticky top-0 bg-[#1864ab] text-white px-4 py-3 flex items-center gap-2">
+      <button onclick="closeScreen('orders')" class="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center"><i class="ph-bold ph-arrow-left"></i></button>
+      <h3 class="font-extrabold text-sm">My Orders (ମୋ ଅର୍ଡର)</h3>
+    </div>
+    <div id="ordersList" class="p-3 space-y-2.5 max-w-md mx-auto pb-28"></div>
+  </div>
+
+  <div id="addressScreen" class="screen fixed inset-0 z-50 bg-[#f1f3f6] hidden overflow-y-auto">
+    <div class="sticky top-0 bg-[#1864ab] text-white px-4 py-3 flex items-center gap-2">
+      <button onclick="closeScreen('address')" class="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center"><i class="ph-bold ph-arrow-left"></i></button>
+      <h3 class="font-extrabold text-sm">My Addresses (ମୋ ଠିକଣା)</h3>
+      <button onclick="openAddressForm()" class="ml-auto px-3 py-1.5 rounded-lg bg-[#ffd43b] text-slate-900 text-xs font-black">+ Add</button>
+    </div>
+    <div class="p-3 max-w-md mx-auto pb-28">
+      <div id="addressForm" class="hidden bg-white p-3 rounded-2xl border border-slate-200 mb-3 space-y-2">
+        <input type="hidden" id="addrEditId">
+        <input type="text" id="addrName" placeholder="Name (ନାମ)" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-200">
+        <input type="tel" id="addrPhone" placeholder="Phone (ଫୋନ୍)" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-200">
+        <textarea id="addrText" rows="2" placeholder="Full address (ସମ୍ପୂର୍ଣ୍ଣ ଠିକଣା)" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-200"></textarea>
+        <label class="flex items-center gap-2 text-xs font-bold text-slate-600"><input type="checkbox" id="addrDefault" class="accent-[#1864ab]"> Default (ମୁଖ୍ୟ)</label>
+        <div class="flex gap-2">
+          <button onclick="closeAddressForm()" class="px-4 py-2 rounded-lg bg-slate-200 text-xs font-bold">Cancel</button>
+          <button onclick="saveAddressForm()" class="flex-1 py-2 rounded-lg bg-[#1864ab] text-white text-xs font-black">Save</button>
+        </div>
+      </div>
+      <div id="addressList" class="space-y-2"></div>
+    </div>
+  </div>
+
+  <div id="profileScreen" class="screen fixed inset-0 z-50 bg-[#f1f3f6] hidden overflow-y-auto">
+    <div class="sticky top-0 bg-[#1864ab] text-white px-4 py-3 flex items-center gap-2">
+      <button onclick="closeScreen('profile')" class="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center"><i class="ph-bold ph-arrow-left"></i></button>
+      <h3 class="font-extrabold text-sm">Profile (ପ୍ରୋଫାଇଲ୍)</h3>
+    </div>
+    <div class="p-3 max-w-md mx-auto pb-28 space-y-3">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 flex items-center gap-3">
+        <div id="profAvatar" class="w-14 h-14 rounded-full bg-[#ffd43b] text-slate-900 font-black text-2xl flex items-center justify-center">M</div>
+        <div>
+          <h4 id="profName" class="font-black text-slate-800">Customer</h4>
+          <p id="profPhone" class="text-xs text-slate-500"></p>
+          <p id="profId" class="text-[10px] text-slate-400"></p>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100">
+        <button onclick="showScreen('orders')" class="w-full flex items-center gap-3 p-3.5 text-left text-xs font-bold text-slate-700"><i class="ph-bold ph-receipt text-[#1864ab] text-lg"></i> My Orders (ମୋ ଅର୍ଡର)</button>
+        <button onclick="showScreen('address')" class="w-full flex items-center gap-3 p-3.5 text-left text-xs font-bold text-slate-700"><i class="ph-bold ph-map-pin text-[#1864ab] text-lg"></i> Saved Addresses (ଠିକଣା)</button>
+        <button onclick="openAdminModal()" class="w-full flex items-center gap-3 p-3.5 text-left text-xs font-bold text-slate-700"><i class="ph-bold ph-shield-check text-[#1864ab] text-lg"></i> Admin Panel (ଆଡମିନ୍)</button>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-3.5 text-[11px] text-slate-500 space-y-1">
+        <div class="flex justify-between"><span>Total Orders</span><span id="profOrderCount" class="font-black text-slate-800">0</span></div>
+        <div class="flex justify-between"><span>Saved Addresses</span><span id="profAddrCount" class="font-black text-slate-800">0</span></div>
       </div>
     </div>
   </div>
@@ -686,6 +814,7 @@
       }
       document.getElementById("floatingCartBadge").innerText = n;
       document.getElementById("floatingCartTotal").innerText = "Rs." + money(total);
+      updateCartBadge();
     }
 
     function openCartDrawer() {
@@ -694,6 +823,7 @@
         document.getElementById('cartDrawerBackdrop').classList.add('opacity-100');
         document.getElementById('cartDrawer').classList.remove('translate-y-full');
       }, 10);
+      setStep('Cart');
       renderCartDrawer();
     }
 
@@ -757,38 +887,241 @@
       try { localStorage.setItem(userProfileKey(), JSON.stringify({ name: name, phone: phone, address: address })); } catch (e) {}
     }
 
-    function submitOrder() {
-      var items = Object.keys(cart).map(ean => ({ ean: ean, qty: cart[ean] }));
-      if (!items.length) { alert("Your cart is empty!"); return; }
+    // --- Screen navigation --------------------------------------------------
+    var currentScreen = 'home';
+    function showScreen(name) {
+      ['orders','address','profile'].forEach(function(s){
+        var el = document.getElementById(s + 'Screen');
+        if (el) el.classList.toggle('hidden', s !== name);
+      });
+      currentScreen = name;
+      document.querySelectorAll('.nav-btn').forEach(function(b){
+        var on = b.dataset.nav === name;
+        b.classList.toggle('text-[#1864ab]', on);
+        b.classList.toggle('text-slate-500', !on);
+      });
+      if (name === 'orders') renderOrders();
+      if (name === 'address') renderAddressList();
+      if (name === 'profile') renderProfile();
+    }
+    function closeScreen(name) {
+      var el = document.getElementById(name + 'Screen');
+      if (el) el.classList.add('hidden');
+      currentScreen = 'home';
+      document.querySelectorAll('.nav-btn').forEach(function(b){
+        b.classList.toggle('text-[#1864ab]', b.dataset.nav === 'home');
+        b.classList.toggle('text-slate-500', b.dataset.nav !== 'home');
+      });
+    }
 
+    // --- Per-user storage ---------------------------------------------------
+    function uidKey(base) { var u = getTgUser(); return base + '_' + (u && u.id ? u.id : 'anon'); }
+    function getAddresses() { try { return JSON.parse(localStorage.getItem(uidKey('munna_addresses')) || '[]'); } catch(e){ return []; } }
+    function setAddresses(a) { try { localStorage.setItem(uidKey('munna_addresses'), JSON.stringify(a)); } catch(e){} }
+    function getMyOrders() { try { return JSON.parse(localStorage.getItem(uidKey('munna_orders')) || '[]'); } catch(e){ return []; } }
+    function setMyOrders(o) { try { localStorage.setItem(uidKey('munna_orders'), JSON.stringify(o)); } catch(e){} }
+    // --- Address book -------------------------------------------------------
+    function openAddressForm(id) {
+      var f = document.getElementById('addressForm');
+      f.classList.remove('hidden');
+      document.getElementById('addrEditId').value = id || '';
+      var prof = null; try { prof = JSON.parse(localStorage.getItem(userProfileKey()) || 'null'); } catch(e){}
+      var u = getTgUser();
+      if (id) {
+        var a = getAddresses().find(x => x.id === id) || {};
+        document.getElementById('addrName').value = a.name || '';
+        document.getElementById('addrPhone').value = a.phone || '';
+        document.getElementById('addrText').value = a.address || '';
+        document.getElementById('addrDefault').checked = !!a.isDefault;
+      } else {
+        document.getElementById('addrName').value = (prof && prof.name) || (u && u.first_name) || '';
+        document.getElementById('addrPhone').value = (prof && prof.phone) || (u && u.phone_number) || '';
+        document.getElementById('addrText').value = (prof && prof.address) || '';
+        document.getElementById('addrDefault').checked = getAddresses().length === 0;
+      }
+      f.scrollIntoView({ behavior: 'smooth' });
+    }
+    function closeAddressForm() { document.getElementById('addressForm').classList.add('hidden'); }
+    function saveAddressForm() {
+      var id = document.getElementById('addrEditId').value;
+      var name = document.getElementById('addrName').value.trim();
+      var phone = document.getElementById('addrPhone').value.trim();
+      var address = document.getElementById('addrText').value.trim();
+      var isDefault = document.getElementById('addrDefault').checked;
+      if (!name || !phone || !address) { alert("Name, phone ଏବଂ address ସବୁ ଦିଅନ୍ତୁ!"); return; }
+      var list = getAddresses();
+      if (isDefault) list.forEach(a => a.isDefault = false);
+      if (id) {
+        var a = list.find(x => x.id === id);
+        if (a) { a.name=name; a.phone=phone; a.address=address; a.isDefault=isDefault; }
+      } else {
+        list.push({ id: 'A' + Date.now(), name:name, phone:phone, address:address, isDefault: isDefault || list.length===0 });
+      }
+      setAddresses(list);
+      saveOrderProfile(name, phone, address);
+      sendToBot({ action: 'SAVE_ADDRESS', name: name, phone: phone, address: address, isDefault: isDefault });
+      closeAddressForm();
+      renderAddressList();
+    }
+    function deleteAddress(id) {
+      if (!confirm('ଏହି ଠିକଣା ଡିଲିଟ୍ କରିବେ କି?')) return;
+      setAddresses(getAddresses().filter(a => a.id !== id));
+      renderAddressList();
+    }
+    function setDefaultAddress(id) {
+      var list = getAddresses();
+      list.forEach(a => a.isDefault = a.id === id);
+      setAddresses(list);
+      var a = list.find(x => x.id === id);
+      if (a) saveOrderProfile(a.name, a.phone, a.address);
+      renderAddressList();
+    }
+    function renderAddressList() {
+      var box = document.getElementById('addressList');
+      var list = getAddresses();
+      if (!list.length) {
+        box.innerHTML = '<p class="text-center text-xs text-slate-400 py-8">କୌଣସି ଠିକଣା ସେଭ୍ ହୋଇନାହିଁ। + Add ରେ ଯୋଡ଼ନ୍ତୁ।</p>';
+        return;
+      }
+      box.innerHTML = list.map(a => `
+        <div class="bg-white p-3 rounded-2xl border ${a.isDefault ? 'border-[#1864ab]' : 'border-slate-200'}">
+          <div class="flex-1">
+            <div class="flex items-center gap-2">
+              <span class="font-black text-slate-800 text-xs">${a.name}</span>
+              ${a.isDefault ? '<span class="text-[9px] bg-[#1864ab] text-white px-1.5 py-0.5 rounded font-bold">DEFAULT</span>' : ''}
+            </div>
+            <p class="text-[11px] text-slate-500 mt-0.5">${a.phone}</p>
+            <p class="text-[11px] text-slate-600 mt-1">${a.address}</p>
+          </div>
+          <div class="flex gap-3 mt-2 pt-2 border-t border-slate-100 text-[11px] font-bold">
+            ${a.isDefault ? '' : `<button onclick="setDefaultAddress('${a.id}')" class="text-[#1864ab]">Set Default</button>`}
+            <button onclick="openAddressForm('${a.id}')" class="text-amber-600">Edit</button>
+            <button onclick="deleteAddress('${a.id}')" class="text-rose-600">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+    // --- Checkout steps -----------------------------------------------------
+    function setStep(name) {
+      ['stepCart','stepAddress','stepPayment','stepSuccess'].forEach(function(s){
+        var el = document.getElementById(s);
+        if (el) el.classList.toggle('hidden', s !== ('step' + name));
+      });
+    }
+    function goCheckoutAddress() {
+      if (!Object.keys(cart).length) { alert("Cart ଖାଲି ଅଛି!"); return; }
+      prefillOrderForm();
+      renderSavedAddressPick();
+      setStep('Address');
+    }
+    function backToCart() { setStep('Cart'); }
+    function goCheckoutPayment() {
+      if (!document.getElementById('orderCustAddress').value.trim() || !document.getElementById('orderCustPhone').value.trim()) {
+        alert("କୃପା କରି ଠିକଣା ଓ ଫୋନ୍ ଦିଅନ୍ତୁ!"); return;
+      }
+      setStep('Payment');
+    }
+    function backToAddress() { setStep('Address'); }
+    function renderSavedAddressPick() {
+      var box = document.getElementById('savedAddressPick');
+      var list = getAddresses();
+      if (!list.length) { box.innerHTML = ''; return; }
+      box.innerHTML = list.slice(0,3).map(a => `
+        <div onclick="pickSavedAddress('${a.id}')" class="p-2 rounded-xl border ${a.isDefault?'border-[#1864ab] bg-blue-50':'border-slate-200 bg-white'} cursor-pointer text-[11px]">
+          <span class="font-bold">${a.name}</span> · <span class="text-slate-500">${a.phone}</span>
+          <p class="text-slate-600 mt-0.5">${a.address}</p>
+        </div>
+      `).join('');
+    }
+    function pickSavedAddress(id) {
+      var a = getAddresses().find(x => x.id === id);
+      if (!a) return;
+      document.getElementById('orderCustName').value = a.name;
+      document.getElementById('orderCustPhone').value = a.phone;
+      document.getElementById('orderCustAddress').value = a.address;
+      saveOrderProfile(a.name, a.phone, a.address);
+      renderSavedAddressPick();
+    }
+    function sendToBot(payload) {
+      if (tg && tg.sendData) { try { tg.sendData(JSON.stringify(payload)); return true; } catch(e){} }
+      return false;
+    }
+
+    function placeMiniOrder() {
+      var items = Object.keys(cart).map(ean => ({ ean: ean, qty: cart[ean] }));
+      if (!items.length) { alert("Cart ଖାଲି ଅଛି!"); return; }
       var name = document.getElementById('orderCustName').value.trim() || 'Customer';
       var phone = document.getElementById('orderCustPhone').value.trim();
       var address = document.getElementById('orderCustAddress').value.trim();
+      if (!phone || !address) { setStep('Address'); alert("ଫୋନ୍ ଓ ଠିକଣା ଦିଅନ୍ତୁ!"); return; }
+      var payEl = document.querySelector('input[name="payMethod"]:checked');
+      var payment = payEl ? payEl.value : 'COD';
 
-      if (!phone || !address) {
-        alert("ଦୟାକରି ଫୋନ୍ ନମ୍ବର ଏବଂ ଠିକଣା ପ୍ରବେଶ କରନ୍ତୁ!");
+      var total = 0, lines = [];
+      items.forEach(function(it){
+        var p = window.STORE_CATALOG.find(x => String(x.ean) === String(it.ean));
+        if (p) { var sub=(parseFloat(p.selling_price)||0)*it.qty; total+=sub; lines.push({name:p.product_name, qty:it.qty, price:p.selling_price}); }
+      });
+
+      var orderId = 'M' + Date.now().toString().slice(-8);
+      var order = { id: orderId, date: new Date().toISOString(), name:name, phone:phone, address:address,
+                    payment: payment, total: total, items: lines, status: 'Placed' };
+      var orders = getMyOrders(); orders.unshift(order); setMyOrders(orders);
+      saveOrderProfile(name, phone, address);
+      // Real order to the bot -> db.place_order (Sheets + stock deduction)
+      sendToBot({ action:'ORDER', orderId: orderId, customer:name, phone:phone, address:address, payment:payment, total:total, items: items });
+      cart = {}; render(); renderBar(); updateCartBadge(); renderCartDrawer();
+      document.getElementById('successOrderId').innerText = orderId;
+      setStep('Success');
+    }
+    // --- Orders screen ------------------------------------------------------
+    function statusChip(s) {
+      var map = { 'Placed':'bg-blue-100 text-blue-700', 'Confirmed':'bg-indigo-100 text-indigo-700', 'Packing':'bg-amber-100 text-amber-700', 'Out for delivery':'bg-orange-100 text-orange-700', 'Delivered':'bg-emerald-100 text-emerald-700', 'Cancelled':'bg-rose-100 text-rose-700' };
+      return `<span class="text-[9px] font-black px-2 py-0.5 rounded-full ${map[s] || 'bg-slate-100 text-slate-600'}">${s}</span>`;
+    }
+    function renderOrders() {
+      var box = document.getElementById('ordersList');
+      var orders = getMyOrders();
+      if (!orders.length) {
+        box.innerHTML = '<div class="text-center py-16"><i class="ph-bold ph-receipt text-5xl text-slate-300"></i><p class="text-xs text-slate-400 mt-2">ଏଯାଏଁ କୌଣସି ଅର୍ଡର ନାହିଁ।</p></div>';
         return;
       }
-      saveOrderProfile(name, phone, address);
+      box.innerHTML = orders.map(o => `
+        <div class="bg-white p-3 rounded-2xl border border-slate-200">
+          <div class="flex items-center justify-between">
+            <span class="font-black text-slate-800 text-xs">#${o.id}</span>
+            ${statusChip(o.status)}
+          </div>
+          <p class="text-[10px] text-slate-400 mt-0.5">${new Date(o.date).toLocaleString()}</p>
+          <div class="mt-2 space-y-1">
+            ${(o.items||[]).map(i=>`<div class="flex justify-between text-[11px]"><span class="text-slate-600">${i.name} x${i.qty}</span><span class="font-bold">Rs.${money((parseFloat(i.price)||0)*i.qty)}</span></div>`).join('')}
+          </div>
+          <div class="flex justify-between mt-2 pt-2 border-t border-slate-100 text-xs">
+            <span class="font-bold text-slate-600">${o.payment} · Total</span>
+            <span class="font-black text-[#1864ab]">Rs.${money(o.total)}</span>
+          </div>
+        </div>
+      `).join('');
+    }
 
-      var total = 0;
-      var text = `🛍️ *ନୂଆ ଅର୍ଡର - MUNNA STORE*\n👤 ଗ୍ରାହକ: ${name}\n📞 ଫୋନ୍: ${phone}\n📍 ଠିକଣା: ${address}\n\n*ସାମଗ୍ରୀ:*`;
-      items.forEach(it => {
-        var p = window.STORE_CATALOG.find(x => String(x.ean) === String(it.ean));
-        if (p) {
-          var sub = (parseFloat(p.selling_price) || 0) * it.qty;
-          total += sub;
-          text += `\n• ${p.product_name} x${it.qty} = Rs.${sub}`;
-        }
-      });
-      text += `\n\n*ମୋଟ: Rs.${money(total)}*`;
+    // --- Profile screen -----------------------------------------------------
+    function renderProfile() {
+      var u = getTgUser();
+      var prof = null; try { prof = JSON.parse(localStorage.getItem(userProfileKey()) || 'null'); } catch(e){}
+      var name = (u && u.first_name) || (prof && prof.name) || 'Customer';
+      document.getElementById('profName').innerText = name;
+      document.getElementById('profPhone').innerText = (u && u.phone_number) || (prof && prof.phone) || '';
+      document.getElementById('profId').innerText = u ? ('Telegram ID: ' + u.id) : '';
+      document.getElementById('profAvatar').innerText = (name||'M').charAt(0).toUpperCase();
+      document.getElementById('profOrderCount').innerText = getMyOrders().length;
+      document.getElementById('profAddrCount').innerText = getAddresses().length;
+      var lt = document.getElementById('navLoginText'); if (lt) lt.innerText = name;
+    }
 
-      if (tg && tg.sendData) {
-        tg.sendData(JSON.stringify({ action: "ORDER", customer: name, phone: phone, address: address, total: total, items: items }));
-        closeCartDrawer();
-      } else {
-        window.open(`https://wa.me/919933223322?text=${encodeURIComponent(text)}`, '_blank');
-      }
+    function updateCartBadge() {
+      var n = 0; Object.keys(cart).forEach(k => n += cart[k]);
+      var b = document.getElementById('navCartBadge');
+      if (b) { b.innerText = n; b.classList.toggle('hidden', n === 0); }
     }
 
     function handleSearch(val) {
@@ -1064,6 +1397,9 @@
         }
       } catch (e) {}
       prefillOrderForm();
+      renderProfile();
+      updateCartBadge();
+      showScreen('home');
       render();
       syncFromGoogleSheet();
     });
