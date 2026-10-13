@@ -1647,11 +1647,11 @@
       var i = shopConfig.trending.indexOf(ean);
       if (i >= 0) shopConfig.trending.splice(i, 1); else shopConfig.trending.push(ean);
       cacheShopConfig_();
+      // Auto-push immediately so the admin's star tap reaches the shared
+      // Sheet right away (every customer phone picks it up on next poll).
+      pushConfigToSheet('trending', (shopConfig.trending || []).join(','));
       renderTrending();
       renderAdminList();
-      // Do NOT auto-push here — the master 💾 Save All to Sheet button (or the
-      // Shop-tab Save button) pushes the trending list to the shared Sheet so
-      // every customer phone updates. This avoids a dozen silent POSTs.
     }
 
     // 📊 Stock counting engine: auto low-stock (<=5) / out-of-stock report.
