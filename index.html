@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>ମୁନ୍ନା ମୋବାଇଲ୍ ଆଣ୍ଡ୍ ଗ୍ରୋସରୀ - MUNNA MOBILE & GROCERY</title>
 
+<!-- PWA: installable app (manifest + icons + theme) -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1864ab">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="MUNNA GROCERY">
+
 <!-- Telegram WebApp SDK -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
@@ -17,6 +26,9 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<!-- Barcode/QR scanner (EAN-13, QR, CODE-128...) for quick search & billing -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Oriya:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -24,8 +36,8 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-  /* Netlify floating badge hide */
-  [class*="netlify"], [data-netlify-deploy-id], div[style*="z-index: 10000"] {
+  /* Host badge hide (any deploy badge) */
+  [class*="deploy-badge"], div[style*="z-index: 10000"] {
     display: none !important;
     visibility: hidden !important;
   }
@@ -68,6 +80,10 @@
           <i class="ph-bold ph-translate"></i>
           <span id="langBtnText">English</span>
         </button>
+        <button id="headerAuthBtn" onclick="onHeaderAuth()" class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-[11px] font-bold flex items-center gap-1">
+          <i class="ph-bold ph-user-circle"></i>
+          <span id="headerAuthText">Login</span>
+        </button>
         <button onclick="openAdminModal()" class="px-2.5 py-1 rounded-lg bg-[#ffd43b] text-slate-950 text-xs font-black flex items-center gap-1 shadow-xs hover:bg-yellow-400">
           <i class="ph-bold ph-lock-key"></i>
           <span>Admin</span>
@@ -90,12 +106,17 @@
           id="searchInput" 
           placeholder="ମୋବାଇଲ୍, ଚାର୍ଜର କିମ୍ବା ଗ୍ରୋସରୀ ସନ୍ଧାନ କରନ୍ତୁ..."
           oninput="handleSearch(this.value)"
-          class="w-full pl-9 pr-9 py-2 bg-white text-slate-800 text-xs rounded-xl shadow-xs border border-transparent focus:border-yellow-400 outline-none placeholder:text-slate-400 font-medium"
+          class="w-full pl-9 pr-16 py-2 bg-white text-slate-800 text-xs rounded-xl shadow-xs border border-transparent focus:border-yellow-400 outline-none placeholder:text-slate-400 font-medium"
         >
+        <button onclick="openScanner('customer')" title="ବାରକୋଡ୍ / QR ସ୍କାନ୍ କରନ୍ତୁ" class="absolute right-8 top-1/2 -translate-y-1/2 text-slate-500 hover:text-[#1864ab]">
+          <i class="ph-bold ph-barcode text-base"></i>
+        </button>
         <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
           <i class="ph-bold ph-x-circle text-base"></i>
         </button>
       </div>
+      <!-- Recent scans (saved) for one-tap re-search -->
+      <div id="scanHistoryRow" class="hidden gap-1.5 overflow-x-auto no-scrollbar pt-1.5"></div>
     </div>
   </header>
 
@@ -183,23 +204,24 @@
     </div>
   </nav>
 
-  <!-- ================= CART & CHECKOUT DRAWER (WITH 3KM LEAFLET MAP) ================= -->
-  <div id="cartDrawerBackdrop" onclick="closeCartDrawer()" class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 hidden opacity-0 transition-opacity duration-300"></div>
-  <div id="cartDrawer" class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-3xl shadow-2xl z-50 transform translate-y-full transition-transform duration-300 ease-out flex flex-col max-h-[90vh]">
-    <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-      <h3 class="font-extrabold text-slate-900 text-sm flex items-center gap-1.5">
-        <i class="ph-bold ph-shopping-cart text-[#1864ab]"></i>
-        <span>ଆପଣଙ୍କ କାର୍ଟ (Your Cart)</span>
+  <!-- ================= CART PAGE (SEPARATE SCREEN WITH FULL CHECKOUT FLOW) ================= -->
+  <div id="cartScreen" class="screen fixed inset-0 z-50 bg-[#f1f3f6] hidden overflow-y-auto">
+    <div class="sticky top-0 bg-[#1864ab] text-white px-4 py-3 flex items-center gap-2 z-10 shadow-sm">
+      <button onclick="closeScreen('cart')" class="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center"><i class="ph-bold ph-arrow-left"></i></button>
+      <h3 class="font-extrabold text-sm flex items-center gap-1.5">
+        <i class="ph-bold ph-shopping-cart"></i>
+        <span>କାର୍ଟ ଓ ଚେକଆଉଟ୍ (Cart & Checkout)</span>
       </h3>
-      <button onclick="closeCartDrawer()" class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-        <i class="ph-bold ph-x text-sm"></i>
-      </button>
+      <button onclick="renderCartDrawer()" class="ml-auto text-[11px] font-bold flex items-center gap-1"><i class="ph-bold ph-arrows-clockwise"></i> Refresh</button>
     </div>
 
-    <div id="cartItemsContainer" class="p-4 overflow-y-auto space-y-2.5 flex-1 no-scrollbar"></div>
+    <div class="p-3 max-w-md mx-auto pb-28 space-y-3">
+      <div class="bg-white p-3 rounded-2xl border border-slate-200">
+        <div id="cartItemsContainer" class="space-y-2.5"></div>
+      </div>
 
-    <div id="cartFooterView" class="p-4 bg-slate-50 border-t border-slate-100">
-      <div class="space-y-1 text-xs font-semibold text-slate-600 pb-2 border-b border-slate-200">
+      <div id="cartFooterView" class="bg-white p-3 rounded-2xl border border-slate-200 space-y-3">
+        <div class="space-y-1 text-xs font-semibold text-slate-600 pb-2 border-b border-slate-200">
         <div class="flex justify-between">
           <span>ସର୍ବମୋଟ ସାମଗ୍ରୀ (Subtotal):</span>
           <span id="summarySubtotal">Rs.0</span>
@@ -228,7 +250,7 @@
           <i class="ph-bold ph-map-pin shrink-0"></i>
           <span id="cartAddrText" class="line-clamp-1">📍 ଡେଲିଭରୀ ଠିକଣା ଯୋଡ଼ନ୍ତୁ</span>
         </span>
-        <button onclick="closeCartDrawer(); showScreen('address');" class="text-[#1864ab] font-bold shrink-0 ml-2">➕ Add / Change</button>
+        <button onclick="showScreen('address');" class="text-[#1864ab] font-bold shrink-0 ml-2">➕ Add / Change</button>
       </div>
 
       <!-- Step 1: Cart Summary View -->
@@ -298,9 +320,10 @@
         <p class="text-xs text-slate-500 mt-0.5">Order ID: <span id="successOrderId" class="font-bold text-[#1864ab]"></span></p>
         <p class="text-xs text-slate-600 mt-1 font-bold">ଦେବାକୁ ଥିବା ଟଙ୍କା: <span id="successOrderPay" class="font-black text-emerald-700">Rs.0</span></p>
         <div class="flex gap-2 mt-3">
-          <button onclick="closeCartDrawer(); showScreen('orders')" class="flex-1 py-2.5 rounded-xl bg-slate-200 text-slate-700 font-bold text-xs">Track Order</button>
-          <button onclick="closeCartDrawer(); showScreen('home')" class="flex-1 py-2.5 rounded-xl bg-[#1864ab] text-white font-bold text-xs">Continue Shopping</button>
+          <button onclick="showScreen('orders')" class="flex-1 py-2.5 rounded-xl bg-slate-200 text-slate-700 font-bold text-xs">Track Order</button>
+          <button onclick="showScreen('home')" class="flex-1 py-2.5 rounded-xl bg-[#1864ab] text-white font-bold text-xs">Continue Shopping</button>
         </div>
+      </div>
       </div>
     </div>
   </div>
@@ -358,6 +381,7 @@
           <p id="profId" class="text-[10px] text-slate-400"></p>
         </div>
       </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-3.5" id="authRowCard"></div>
       <div class="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100">
         <button onclick="showScreen('orders')" class="w-full flex items-center gap-3 p-3.5 text-left text-xs font-bold text-slate-700"><i class="ph-bold ph-receipt text-[#1864ab] text-lg"></i> My Orders (ମୋ ଅର୍ଡର)</button>
         <button onclick="showScreen('address')" class="w-full flex items-center gap-3 p-3.5 text-left text-xs font-bold text-slate-700"><i class="ph-bold ph-map-pin text-[#1864ab] text-lg"></i> Saved Addresses (ଠିକଣା)</button>
@@ -400,9 +424,10 @@
       </div>
 
       <!-- Admin Top Nav Tabs -->
-      <div class="flex bg-white border-b border-slate-200 text-xs font-bold text-slate-600 sticky top-12 z-20">
-        <button onclick="switchAdminTab('orders')" id="admTabBtn-orders" class="flex-1 py-2.5 text-center border-b-2 border-[#1864ab] text-[#1864ab]">📦 Orders</button>
-        <button onclick="switchAdminTab('stock')" id="admTabBtn-stock" class="flex-1 py-2.5 text-center border-b-2 border-transparent">🏷️ Catalog</button>
+      <div class="flex bg-white border-b border-slate-200 text-[10px] font-bold text-slate-600 sticky top-12 z-20 overflow-x-auto no-scrollbar">
+        <button onclick="switchAdminTab('orders')" id="admTabBtn-orders" class="flex-1 py-2.5 text-center border-b-2 border-[#1864ab] text-[#1864ab] whitespace-nowrap px-1">📦 Orders</button>
+        <button onclick="switchAdminTab('users')" id="admTabBtn-users" class="flex-1 py-2.5 text-center border-b-2 border-transparent whitespace-nowrap px-1">👥 Users</button>
+        <button onclick="switchAdminTab('stock')" id="admTabBtn-stock" class="flex-1 py-2.5 text-center border-b-2 border-transparent whitespace-nowrap px-1">🏷️ Catalog</button>
         <button onclick="switchAdminTab('banners')" id="admTabBtn-banners" class="flex-1 py-2.5 text-center border-b-2 border-transparent">📢 Banners</button>
         <button onclick="switchAdminTab('sync')" id="admTabBtn-sync" class="flex-1 py-2.5 text-center border-b-2 border-transparent">⚙️ Sheets</button>
         <button onclick="switchAdminTab('settings')" id="admTabBtn-settings" class="flex-1 py-2.5 text-center border-b-2 border-transparent">🛒 Shop</button>
@@ -419,13 +444,37 @@
       <div class="p-3.5 space-y-3 flex-1">
         <!-- Tab 1: Orders (5-Stage Fulfillment & Live Item Editing) -->
         <div id="admTab-orders" class="space-y-3">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-2">
             <h4 class="text-xs font-black text-slate-700">📦 Customer Orders (5-Stage Dispatch)</h4>
-            <button onclick="renderAdminOrders()" class="text-[11px] font-bold text-[#1864ab] flex items-center gap-1">
-              <i class="ph-bold ph-arrows-clockwise"></i> Refresh
-            </button>
+            <div class="flex items-center gap-2">
+              <button onclick="openScanner('quickbill')" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg flex items-center gap-1 shadow-xs">
+                <i class="ph-bold ph-barcode"></i> ⚡ Quick Bill
+              </button>
+              <button onclick="renderAdminOrders()" class="text-[11px] font-bold text-[#1864ab] flex items-center gap-1">
+                <i class="ph-bold ph-arrows-clockwise"></i> Refresh
+              </button>
+            </div>
           </div>
           <div id="adminOrdersContainer" class="space-y-3"></div>
+        </div>
+
+        <!-- Tab: ALL CUSTOMERS (every user from Orders + Addresses, Sheet-shared) -->
+        <div id="admTab-users" class="hidden space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-black text-slate-700">👥 ସମସ୍ତ ଗ୍ରାହକ (All Users)</h4>
+            <button onclick="syncUsersFromSheet()" class="text-[11px] font-bold text-[#1864ab] flex items-center gap-1">
+              <i class="ph-bold ph-arrows-clockwise"></i> Sync
+            </button>
+          </div>
+          <div id="adminUserStats" class="flex gap-2 text-[10px] font-bold flex-wrap"></div>
+          <div class="bg-white p-2.5 rounded-2xl border border-slate-200">
+            <div class="relative">
+              <i class="ph-bold ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+              <input type="text" id="adminUserSearch" oninput="renderAdminUsers()" placeholder="🔍 ନାଁ / ଫୋନ୍ / ଠିକଣା ରୁ ଖୋଜନ୍ତୁ..."
+                     class="w-full text-xs pl-8 pr-2.5 py-2 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+            </div>
+          </div>
+          <div id="adminUsersList" class="space-y-2"></div>
         </div>
 
         <!-- Tab 2: Catalog Manager (Smart Search & Edit) -->
@@ -513,6 +562,16 @@
               </div>
 
               <div>
+                <label class="text-[11px] font-bold text-slate-700">EAN / ବାରକୋଡ୍ (ଗ୍ରାହକ ସ୍କାନ୍ ପାଇଁ)</label>
+                <div class="flex gap-1.5">
+                  <input type="text" id="newProdEan" placeholder="ଯେପରି 8901234567890 — ଖାଲି ରଖିଲେ auto" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+                  <button type="button" onclick="openScanner('admin')" title="ବାରକୋଡ୍ ସ୍କାନ୍" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold rounded-lg shrink-0 flex items-center gap-1">
+                    <i class="ph-bold ph-barcode"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div>
                 <label class="text-[11px] font-bold text-slate-700">Image URL</label>
                 <input type="url" id="newProdImg" oninput="updateImagePreview(this.value)" placeholder="https://... କିମ୍ବା JioMart ସର୍ଚ୍ଚରୁ ବାଛନ୍ତୁ" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
                 <button type="button" onclick="switchAdminTab('banners')" class="mt-1 text-[10px] text-[#1864ab] font-bold hover:underline">🖼️ ନିଜ ଫଟୋର ଲିଙ୍କ୍ ତିଆରି କରନ୍ତୁ (Image Link Generator)</button>
@@ -540,7 +599,10 @@
                 <i class="ph-bold ph-magnifying-glass absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
                 <input type="text" id="dbSearchInput" oninput="renderAdminList()"
                        placeholder="🔍 ଡାଟାବେସ୍‌ରୁ ଖୋଜନ୍ତୁ (ନାଁ / EAN / ବର୍ଗ)..."
-                       class="w-full text-xs pl-7 pr-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+                       class="w-full text-xs pl-7 pr-8 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+                <button type="button" onclick="openScanner('admin')" title="EAN ସ୍କାନ୍ କରନ୍ତୁ" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#1864ab]">
+                  <i class="ph-bold ph-barcode text-sm"></i>
+                </button>
               </div>
               <button type="button" onclick="clearDbSearch()" id="dbSearchClearBtn"
                       class="hidden px-2 py-1.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-lg shrink-0">
@@ -663,6 +725,112 @@
             <p class="text-[10px] text-slate-400 leading-snug">✅ ଥରେ ସେଭ୍ କଲେ ସମସ୍ତଙ୍କ ଫୋନ୍ ରେ ଲାଗୁ (Config tab)। Cart ରେ ଗ୍ରାହକ କୁପନ୍ apply କରିପାରିବେ।</p>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= PRODUCT SCANNER (EAN/QR CAMERA + PHOTO + MANUAL) ================= -->
+  <div id="scannerModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-3">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div class="bg-[#1864ab] text-white px-4 py-2.5 flex items-center justify-between shrink-0">
+        <span class="font-extrabold text-sm flex items-center gap-1.5"><i class="ph-bold ph-barcode"></i> ସ୍କାନ୍ କରନ୍ତୁ (Scan)</span>
+        <button onclick="closeScanner()" class="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center"><i class="ph-bold ph-x"></i></button>
+      </div>
+
+      <!-- Scan result banner + actions -->
+      <div id="scanResultBanner" class="hidden px-3 pt-3 space-y-2 shrink-0"></div>
+
+      <!-- Store-side Quick Bill (POS): running scanned lines -->
+      <div id="quickBillBox" class="hidden px-3 pt-3 space-y-2 shrink-0">
+        <div class="flex items-center justify-between text-xs font-black text-slate-800">
+          <span>⚡ Quick Bill</span>
+          <span id="qbTotal" class="text-[#1864ab]">Rs.0</span>
+        </div>
+        <div id="qbItems" class="space-y-1.5 max-h-36 overflow-y-auto no-scrollbar"></div>
+        <input id="qbName" type="text" placeholder="ଗ୍ରାହକ ନାଁ (ଐଚ୍ଛିକ)" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+        <input id="qbPhone" type="tel" placeholder="ଫୋନ୍ ନମ୍ବର (ଐଚ୍ଛିକ)" class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab]">
+        <button onclick="saveQuickBill()" class="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5">
+          <i class="ph-bold ph-floppy-disk"></i> ବିଲ୍ ସେଭ୍ କରନ୍ତୁ (Save Order)
+        </button>
+      </div>
+
+      <!-- Live camera view -->
+      <div id="scannerReader" class="mx-3 mt-3 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center" style="min-height:170px">
+        <span id="scannerIdleHint" class="text-[11px] text-slate-300 p-4 text-center">📷 Camera ଆରମ୍ଭ ହେଉଛି...<br>ବାରକୋଡ୍ / QR ଆଗରେ ଧରନ୍ତୁ</span>
+      </div>
+
+      <div class="p-3 space-y-2 shrink-0">
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="startCameraScan()" id="camBtn" class="py-2 rounded-xl bg-[#1864ab] hover:bg-blue-800 text-white text-xs font-extrabold flex items-center justify-center gap-1.5">
+            <i class="ph-bold ph-camera"></i> Camera ଚାଲାନ୍ତୁ
+          </button>
+          <button onclick="document.getElementById('scanPhotoInput').click()" class="py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-extrabold flex items-center justify-center gap-1.5">
+            <i class="ph-bold ph-image"></i> ଫଟୋରୁ ସ୍କାନ୍
+          </button>
+        </div>
+        <input type="file" id="scanPhotoInput" accept="image/*" class="hidden">
+        <div class="flex gap-1.5">
+          <input id="scanManualInput" type="text" placeholder="EAN / QR ଟେକ୍ସଟ୍ ଲେଖି ଖୋଜନ୍ତୁ..." onkeydown="if(event.key==='Enter') manualScanGo()" class="flex-1 text-xs px-2.5 py-2 border border-slate-200 rounded-lg outline-none focus:border-[#1864ab] uppercase">
+          <button onclick="manualScanGo()" class="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold rounded-lg shrink-0">ଖୋଜନ୍ତୁ</button>
+        </div>
+        <p class="text-[10px] text-slate-400 text-center leading-snug">📸 Camera · 🖼️ ଫଟୋରେ ବାରକୋଡ୍ · କିମ୍ବା ହାତରେ EAN ଲେଖନ୍ତୁ</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= LOGIN MODAL (OTP / GOOGLE / TELEGRAM / GUEST) ================= -->
+  <div id="loginModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[65] hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto no-scrollbar">
+      <div class="bg-[#1864ab] text-white px-4 py-3 flex items-center gap-2">
+        <i class="ph-bold ph-user-circle text-lg"></i>
+        <span class="font-extrabold text-sm">ଲଗଇନ୍ (Login)</span>
+        <button onclick="closeLoginModal()" class="ml-auto w-7 h-7 rounded-full bg-white/15 flex items-center justify-center"><i class="ph-bold ph-x"></i></button>
+      </div>
+
+      <!-- Login tabs -->
+      <div class="flex bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600">
+        <button onclick="switchLoginTab('otp')" id="loginTabBtn-otp" class="flex-1 py-2.5 text-center border-b-2 border-[#1864ab] text-[#1864ab]">📱 OTP</button>
+        <button onclick="switchLoginTab('google')" id="loginTabBtn-google" class="flex-1 py-2.5 text-center border-b-2 border-transparent">🔵 Google</button>
+        <button onclick="switchLoginTab('tg')" id="loginTabBtn-tg" class="flex-1 py-2.5 text-center border-b-2 border-transparent">✈️ Telegram</button>
+      </div>
+
+      <div class="p-4 space-y-3">
+        <!-- TAB 1: Mobile OTP -->
+        <div id="loginTab-otp" class="space-y-2.5">
+          <input type="text" id="loginName" placeholder="ଆପଣଙ୍କ ନାଁ (ଐଚ୍ଛିକ)" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 outline-none focus:border-[#1864ab]">
+          <div class="flex gap-1.5">
+            <input type="tel" id="loginPhone" maxlength="10" inputmode="numeric" placeholder="10-ଅଙ୍କ ମୋବାଇଲ୍ ନମ୍ବର" class="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-200 outline-none focus:border-[#1864ab]">
+            <button onclick="sendOtp()" class="px-3 py-2 bg-[#1864ab] hover:bg-blue-800 text-white text-xs font-extrabold rounded-lg shrink-0">OTP ପଠାନ୍ତୁ</button>
+          </div>
+          <p id="otpHint" class="hidden text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 font-bold"></p>
+          <div class="flex gap-1.5">
+            <input type="tel" id="loginOtp" maxlength="4" inputmode="numeric" placeholder="4-ଅଙ୍କ OTP ଲେଖନ୍ତୁ" class="flex-1 px-3 py-2 text-xs tracking-widest text-center font-black rounded-lg border border-slate-200 outline-none focus:border-[#1864ab]">
+            <button onclick="verifyOtp()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-lg shrink-0 flex items-center gap-1"><i class="ph-bold ph-check"></i> ଯାଞ୍ଚ</button>
+          </div>
+        </div>
+
+        <!-- TAB 2: Google Sign-In -->
+        <div id="loginTab-google" class="hidden space-y-2.5 text-center">
+          <p class="text-[11px] text-slate-500 leading-snug">ଗୋଟିଏ ଟ୍ୟାପ୍‌ରେ ଗୁଗଲ୍ ଆକାଉଣ୍ଟ୍ ଦ୍ୱାରା ଲଗଇନ୍ ।</p>
+          <div id="googleBtnBox" class="flex justify-center min-h-[44px] items-center"></div>
+          <p id="googleCfgMsg" class="text-[10px] text-slate-400 leading-snug"></p>
+        </div>
+
+        <!-- TAB 3: Telegram -->
+        <div id="loginTab-tg" class="hidden space-y-2.5">
+          <p class="text-[11px] text-slate-500 leading-snug">ଟେଲିଗ୍ରାମ୍ ବଟ୍/ଆପ୍ ଭିତରେ ଖୋଲିଲେ ଆପଣଙ୍କ ପ୍ରୋଫାଇଲ୍ ନିଜେ ଭରିଯିବ ।</p>
+          <div id="tgLoginInfo" class="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-xs text-slate-700"></div>
+          <button onclick="telegramLogin()" id="tgLoginBtn" class="w-full py-2.5 rounded-xl bg-[#229ed9] hover:bg-sky-600 text-white font-extrabold text-xs flex items-center justify-center gap-1.5">
+            <i class="ph-bold ph-paper-plane-tilt"></i> Telegram ରୁ ଲଗଇନ୍
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 text-[10px] text-slate-400">
+          <span class="flex-1 border-t border-slate-200"></span> କିମ୍ବା <span class="flex-1 border-t border-slate-200"></span>
+        </div>
+        <button onclick="guestCheckout()" class="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs flex items-center justify-center gap-1.5">
+          <i class="ph-bold ph-guest"></i> ବିନା ଲଗଇନ୍‌ରେ ଅର୍ଡର କରନ୍ତୁ (Guest)
+        </button>
       </div>
     </div>
   </div>
@@ -1024,21 +1192,13 @@
       }
     }
 
-    // --- CHECKOUT WORKFLOW ---
+    // --- CHECKOUT WORKFLOW (separate full-screen Cart page) ---
     function openCartDrawer() {
-      document.getElementById('cartDrawerBackdrop').classList.remove('hidden');
-      setTimeout(() => {
-        document.getElementById('cartDrawerBackdrop').classList.add('opacity-100');
-        document.getElementById('cartDrawer').classList.remove('translate-y-full');
-      }, 10);
-      setStep('Cart');
-      renderCartDrawer();
+      showScreen('cart');
     }
 
     function closeCartDrawer() {
-      document.getElementById('cartDrawer').classList.add('translate-y-full');
-      document.getElementById('cartDrawerBackdrop').classList.remove('opacity-100');
-      setTimeout(() => document.getElementById('cartDrawerBackdrop').classList.add('hidden'), 300);
+      showScreen('home');
     }
 
     function renderCartDrawer() {
@@ -1137,22 +1297,33 @@
       });
     }
 
+    // Smooth-scroll the Cart page to a checkout step card.
+    function scrollToStep_(id) {
+      var el = document.getElementById(id);
+      var screen = document.getElementById('cartScreen');
+      if (!el || !screen) return;
+      setTimeout(function () {
+        screen.scrollTo({ top: Math.max(0, el.offsetTop - 90), behavior: 'smooth' });
+      }, 30);
+    }
     function goCheckoutAddress() {
       if (!Object.keys(cart).length) { alert("Cart ଖାଲି ଅଛି!"); return; }
       prefillOrderForm();
       renderSavedAddressPick();
       setStep('Address');
       initCheckoutMap();
+      scrollToStep_('stepAddress');
     }
-    function backToCart() { setStep('Cart'); }
+    function backToCart() { setStep('Cart'); scrollToStep_('cartItemsContainer'); }
     function goCheckoutPayment() {
       if (!isWithinRadius) { alert("୩ କିଲୋମିଟର ବାହାରେ ସେବା ଉପଲବ୍ଧ ନାହିଁ!"); return; }
       if (!document.getElementById('orderCustAddress').value.trim() || !document.getElementById('orderCustPhone').value.trim()) {
         alert("କୃପା କରି ଠିକଣା ଓ ଫୋନ୍ ଦିଅନ୍ତୁ!"); return;
       }
       setStep('Payment');
+      scrollToStep_('stepPayment');
     }
-    function backToAddress() { setStep('Address'); }
+    function backToAddress() { setStep('Address'); scrollToStep_('stepAddress'); }
 
     function placeMiniOrder() {
       var name = document.getElementById('orderCustName').value.trim() || 'Customer';
@@ -1239,11 +1410,12 @@
       document.getElementById('successOrderId').innerText = orderObj.order_id;
       document.getElementById('successOrderPay').innerText = payInfo;
       setStep('Success');
+      scrollToStep_('stepSuccess');
     }
 
     // --- SCREEN NAVIGATION ---
     function showScreen(name) {
-      ['orders','address','profile'].forEach(s => {
+      ['cart','orders','address','profile'].forEach(s => {
         var el = document.getElementById(s + 'Screen');
         if (el) el.classList.toggle('hidden', s !== name);
       });
@@ -1252,6 +1424,20 @@
         b.classList.toggle('text-[#1864ab]', on);
         b.classList.toggle('text-slate-500', !on);
       });
+      // Floating cart bar belongs to the HOME screen only.
+      var fbar = document.getElementById('floatingCartBar');
+      if (fbar) {
+        fbar.classList.toggle('hidden', name !== 'home');
+        if (name === 'home') renderBar();
+      }
+      if (name === 'cart') {
+        // Re-entering with an empty cart (or after a placed order) restarts
+        // the flow at Step 1; otherwise the last checkout step is kept.
+        if (!Object.keys(cart).length) setStep('Cart');
+        renderCartDrawer();
+        var cs = document.getElementById('cartScreen');
+        if (cs) cs.scrollTop = 0;
+      }
       if (name === 'orders') {
         renderOrders();
         // Pull Telegram (bot) orders too - the Sheet is the shared database.
@@ -1266,7 +1452,11 @@
     // --- 5-STAGE LIVE ORDER TRACKING ---
     function renderOrders() {
       var box = document.getElementById('ordersList');
-      var filterPhone = document.getElementById('trackOrderPhoneInput').value.trim();
+      // Default filter: logged-in user's own phone (their orders only).
+      var sess = getSessionUser();
+      var phoneEl = document.getElementById('trackOrderPhoneInput');
+      if (phoneEl && !phoneEl.value.trim() && sess && sess.phone) phoneEl.value = sess.phone;
+      var filterPhone = phoneEl ? phoneEl.value.trim() : '';
       var orders = getMyOrders();
 
       if (filterPhone) {
@@ -1335,6 +1525,7 @@
         renderAdminList();
         renderAdminBanners();
         syncOrdersFromSheet();
+        syncUsersFromSheet();
         var hook = localStorage.getItem('munna_sheet_webhook');
         if (hook) document.getElementById('webhookInput').value = hook;
         document.getElementById('jiomartProxyInput').value = localStorage.getItem('munna_jiomart_proxy') || '';
@@ -1348,7 +1539,7 @@
     function closeAdminDashboard() { document.getElementById('adminDashboard').classList.add('hidden'); }
 
     function switchAdminTab(t) {
-      ['orders','stock','banners','settings','sync'].forEach(tab => {
+      ['orders','users','stock','banners','settings','sync'].forEach(tab => {
         document.getElementById(`admTab-${tab}`).classList.toggle('hidden', tab !== t);
         var b = document.getElementById(`admTabBtn-${tab}`);
         b.classList.toggle('border-[#1864ab]', tab === t);
@@ -1356,6 +1547,7 @@
         b.classList.toggle('border-transparent', tab !== t);
       });
       if (t === 'orders') renderAdminOrders();
+      if (t === 'users') { renderAdminUsers(); syncUsersFromSheet(); }
       if (t === 'stock') { renderAdminList(); renderStockHealth(); }
       if (t === 'banners') renderAdminBanners();
       if (t === 'settings') fillShopSettingsInputs();
@@ -1397,6 +1589,134 @@
               <span>Bill: Rs.${money(o.total)}</span>
             </div>
             ${adminOrderActionsHtml(o, oIdx)}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // --- ALL CUSTOMERS (admin Users tab): local orders + Sheet Addresses ---
+    function aggregateUsers_() {
+      var map = {};
+      function ensure(key, base) {
+        key = String(key || '').trim();
+        if (!key) return null;
+        if (!map[key]) map[key] = { user_id: '', tg_id: '', name: '', phone: '', address: '', orders: 0, spent: 0, last: '' };
+        var u = map[key];
+        if (base) {
+          if (!u.name && base.name) u.name = base.name;
+          if (!u.phone && base.phone) u.phone = base.phone;
+          if (!u.address && base.address) u.address = base.address;
+          if (!u.tg_id && base.tg_id) u.tg_id = String(base.tg_id);
+          if (!u.user_id && base.user_id) u.user_id = String(base.user_id);
+        }
+        return u;
+      }
+      // Every order on THIS device contributes (all customers of this store).
+      getMyOrders().forEach(function (o) {
+        var key = String(o.phone || '').trim() || String(o.telegram_user_id || '').trim();
+        var u = ensure(key, { name: o.name, phone: o.phone, address: o.address, tg_id: o.telegram_user_id, user_id: o.telegram_user_id });
+        if (!u) return;
+        u.orders += 1;
+        u.spent += (parseFloat(o.total) || 0);
+        if (String(o.date || '') > u.last) {
+          u.last = String(o.date || '');
+          if (o.address) u.address = o.address;
+          if (o.name) u.name = o.name;
+        }
+      });
+      // Merge the Sheet-shared cache (every user, incl. Telegram bot orders).
+      try {
+        (JSON.parse(localStorage.getItem('MUNA_ALL_USERS') || '[]') || []).forEach(function (x) {
+          var key = String(x.phone || '').trim() || String(x.user_id || '').trim();
+          var u = ensure(key, x);
+          if (!u) return;
+          if (x.orders && !u.sheetCounted) { u.orders = Math.max(u.orders, x.orders); u.sheetCounted = true; }
+          if (x.spent && x.orders) u.spent = Math.max(u.spent, x.spent);
+          if (x.last && String(x.last) > u.last) u.last = String(x.last);
+        });
+      } catch (e) {}
+      return map;
+    }
+
+    function getAllUsers_() {
+      var map = aggregateUsers_();
+      return Object.keys(map).map(function (k) { var u = map[k]; u.key = k; return u; })
+        .sort(function (a, b) { return String(b.last || '').localeCompare(String(a.last || '')); });
+    }
+
+    // Pull ALL customers from the shared Sheet (GET_USERS action in
+    // googlesheetwebapp.js) and cache them for the admin Users tab.
+    async function syncUsersFromSheet() {
+      var url = sheetHookUrl('action=GET_USERS&_=' + Date.now());
+      if (url) {
+        try {
+          var res = await fetch(url);
+          var data = await res.json();
+          var users = (data && Array.isArray(data.users)) ? data.users : [];
+          if (users.length) {
+            try { localStorage.setItem('MUNA_ALL_USERS', JSON.stringify(users)); } catch (e) {}
+          }
+        } catch (e) {}
+      }
+      renderAdminUsers();
+    }
+
+    function renderAdminUsers() {
+      var box = document.getElementById('adminUsersList');
+      if (!box) return;
+      var searchEl = document.getElementById('adminUserSearch');
+      var q = searchEl ? String(searchEl.value || '').trim().toLowerCase() : '';
+      var users = getAllUsers_();
+
+      var stats = document.getElementById('adminUserStats');
+      if (stats) {
+        var totalOrders = users.reduce(function (a, u) { return a + (u.orders || 0); }, 0);
+        var totalSpent = users.reduce(function (a, u) { return a + (u.spent || 0); }, 0);
+        stats.innerHTML =
+          '<span class="px-2 py-1 rounded-lg bg-blue-50 text-blue-700">👥 ମୋଟ ଗ୍ରାହକ: ' + users.length + '</span>' +
+          '<span class="px-2 py-1 rounded-lg bg-amber-50 text-amber-700">📦 ମୋଟ ଅର୍ଡର: ' + totalOrders + '</span>' +
+          '<span class="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700">💰 ବିକ୍ରୟ: Rs.' + money(totalSpent) + '</span>';
+      }
+
+      var filtered = users.filter(function (u) {
+        if (!q) return true;
+        return String(u.name || '').toLowerCase().indexOf(q) >= 0
+          || String(u.phone || '').indexOf(q) >= 0
+          || String(u.address || '').toLowerCase().indexOf(q) >= 0
+          || String(u.tg_id || u.user_id || '').indexOf(q) >= 0;
+      });
+
+      if (!filtered.length) {
+        box.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">କୌଣସି ଗ୍ରାହକ ମିଳିଲା ନାହିଁ।<br><span class="text-[10px]">Sync ଚାପନ୍ତୁ କିମ୍ବା ଅର୍ଡର ଆସିବା ପରେ ଦେଖାଯିବ।</span></p>';
+        return;
+      }
+
+      box.innerHTML = filtered.map(function (u) {
+        var mapsLink = u.address
+          ? ('https://www.google.com/maps/dir/?api=1&origin=' + STORE_LAT + ',' + STORE_LNG + '&destination=' + encodeURIComponent(u.address))
+          : '';
+        var lastStr = u.last ? String(u.last).substring(0, 16) : '—';
+        var initial = (u.name || '?').charAt(0).toUpperCase();
+        return `
+          <div class="bg-white p-3 rounded-2xl border border-slate-200 text-xs space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2 min-w-0">
+                <span class="w-8 h-8 rounded-full bg-blue-50 text-[#1864ab] font-black flex items-center justify-center shrink-0">${initial}</span>
+                <span class="min-w-0">
+                  <span class="font-black text-slate-800 block line-clamp-1">${u.name || 'Customer'}</span>
+                  <span class="text-[11px] text-slate-500">📞 ${u.phone || '—'}${u.tg_id ? (' · TG ' + u.tg_id) : ''}</span>
+                </span>
+              </span>
+              <span class="text-[10px] bg-blue-100 text-[#1864ab] font-black px-2 py-0.5 rounded-md shrink-0">${u.orders || 0} ଅର୍ଡର</span>
+            </div>
+            <div class="text-[11px] text-slate-600 flex items-start justify-between gap-2">
+              <span class="line-clamp-2">📍 ${u.address || 'ଠିକଣା ନାହିଁ'}</span>
+              ${mapsLink ? `<a href="${mapsLink}" target="_blank" class="text-[#1864ab] font-bold shrink-0 flex items-center gap-0.5"><i class="ph-bold ph-navigation-arrow"></i> Map</a>` : ''}
+            </div>
+            <div class="flex items-center justify-between pt-1.5 border-t border-slate-100 text-[11px]">
+              <span class="text-slate-500">ଶେଷ ଅର୍ଡର: <b class="text-slate-700">${lastStr}</b></span>
+              <span class="font-black text-emerald-700">ମୋଟ Rs.${money(u.spent)}</span>
+            </div>
           </div>
         `;
       }).join('');
@@ -1576,7 +1896,7 @@
       f('setCouponMinBill', shopConfig.couponMinBill || '');
     }
 
-    function saveShopSettings() {
+    function saveShopSettings(quiet) {
       shopConfig.deliveryFee = Math.max(0, parseFloat((document.getElementById('setDeliveryFee') || {}).value) || 0);
       shopConfig.freeAbove = Math.max(0, parseFloat((document.getElementById('setFreeAbove') || {}).value) || 0);
       shopConfig.couponCode = (((document.getElementById('setCouponCode') || {}).value) || '').trim().toUpperCase();
@@ -1593,9 +1913,26 @@
       ok = pushConfigToSheet('trending', (shopConfig.trending || []).join(',')) && ok;
       updateBillingSummary();
       renderTrending();
+      if (quiet) return ok;
       alert(ok ? '✅ ସବୁ ସେଟିଂସ୍ ସେଭ୍ ହେଲା — ସମସ୍ତ ଗ୍ରାହକଙ୍କ ଫୋନ୍ ରେ ଲାଗୁ!'
                : '⚠️ ଏହି ଫୋନ୍ ରେ ସେଭ୍ ହେଲା, କିନ୍ତୁ Sheet ରେ ପହଞ୍ଚିଲା ନାହିଁ (Apps Script ନୂଆ version Deploy କରନ୍ତୁ)।');
+      return ok;
     }
+
+    // Auto-save ANY admin change: typing in the Shop settings fields pushes
+    // every value to the shared Sheet 1.5s after the last keystroke, so a
+    // change is never lost even without pressing "Save All to Sheet".
+    (function wireShopAutoSave_() {
+      var t = null;
+      ['setDeliveryFee', 'setFreeAbove', 'setCouponCode', 'setCouponPercent', 'setCouponMinBill'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el || !el.addEventListener) return;
+        el.addEventListener('input', function () {
+          clearTimeout(t);
+          t = setTimeout(function () { saveShopSettings(true); }, 1500);
+        });
+      });
+    })();
 
     // 💾 MASTER SAVE — pushes EVERY admin change (settings + trending + banners)
     // to the shared Google Sheet so ALL customer phones update.
@@ -1634,28 +1971,39 @@
       }
       // ✅ Verify: re-fetch the Sheet config and confirm OUR values landed.
       // (no-cors POST can't return a response, so this read-back is the proof.)
+      // On mismatch -> push trending ONCE more (heals an empty duplicate
+      // Config row left by an old-script race) and re-check before failing.
       if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> Verifying…'; }
+      var okVerify = false, vcfg = {};
       try {
         await new Promise(function (r) { setTimeout(r, 2500); }); // let Apps Script write
         var vurl = sheetHookUrl('action=GET_CONFIG&_=' + Date.now());
-        if (vurl) {
+        var wantTrend = (shopConfig.trending || []).join(',');
+        var wantFee = String(shopConfig.deliveryFee);
+        for (var attempt = 0; attempt < 2 && !okVerify; attempt++) {
+          if (!vurl) break;
           var vres = await fetch(vurl);
           var vdata = await vres.json();
-          var vcfg = (vdata && vdata.config) || {};
-          var wantTrend = (shopConfig.trending || []).join(',');
+          vcfg = (vdata && vdata.config) || {};
           var gotTrend = String(vcfg.trending || '').trim();
-          var wantFee = String(shopConfig.deliveryFee);
           var gotFee = (vcfg.delivery_fee !== undefined && vcfg.delivery_fee !== null) ? String(vcfg.delivery_fee) : '';
           if (gotTrend === wantTrend && (wantFee === '' || gotFee === wantFee)) {
-            applyShopConfig_(vcfg); cacheShopConfig_();
-            alert('✅ ଯାଞ୍ଚ ହୋଇଗଲା — Sheet ରେ ସେଭ୍ ଅଛି!\n🔥 Trending · 🚚 ଡେଲିଭରୀ · 🎟️ କୁପନ୍ · 📢 Banners — ସମସ୍ତ ଗ୍ରାହକ ଫୋନ୍ ରେ ୨ ମିନିଟ୍ ମଧ୍ୟରେ ଦେଖାଯିବ!');
-            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph-bold ph-floppy-disk"></i> 💾 Save All to Sheet'; }
-            return;
+            okVerify = true;
+            break;
+          }
+          if (attempt === 0) {
+            pushConfigToSheet('trending', wantTrend);
+            await new Promise(function (r) { setTimeout(r, 2500); });
           }
         }
       } catch (e) {}
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph-bold ph-floppy-disk"></i> 💾 Save All to Sheet'; }
-      alert('📤 ପଠାଗଲା, କିନ୍ତୁ Sheet ଯାଞ୍ଚ ହେଲା ନାହିଁ — Config tab ରେ trending row ଅଛି କି ଦେଖନ୍ତୁ।');
+      if (okVerify) {
+        applyShopConfig_(vcfg); cacheShopConfig_();
+        alert('✅ ଯାଞ୍ଚ ହୋଇଗଲା — Sheet ରେ ସେଭ୍ ଅଛି!\n🔥 Trending · 🚚 ଡେଲିଭରୀ · 🎟️ କୁପନ୍ · 📢 Banners — ସମସ୍ତ ଗ୍ରାହକ ଫୋନ୍ ରେ ୨ ମିନିଟ୍ ମଧ୍ୟରେ ଦେଖାଯିବ!');
+        return;
+      }
+      alert('📤 ସେଭ୍ ପଠାଗଲା କିନ୍ତୁ ଯାଞ୍ଚ ହେଲା ନାହିଁ।\n\n1️⃣ Apps Script ରେ ନୂଆ googlesheetwebapp.js ପେଷ୍ଟ୍ କରି Deploy କରନ୍ତୁ (ଏଥିରେ ଏହି auto-fix ଅଛି)।\n2️⃣ Config tab ରେ ଗୋଟିଏ key ର ୨ଟି ରୋ ଥିଲେ (ଯେପରି trending) ଗୋଟେ ଡିଲିଟ୍ କରନ୍ତୁ।');
     }
 
     // 🔥 Trending Offers strip on the home page (admin toggles per product).
@@ -1851,23 +2199,6 @@
     }
 
     // --- JioMart search backends (same headers/parsing as jiomart_search_proxy.py) ---
-    // 0) Netlify Function: /.netlify/functions/jiomart-search calls JioMart
-    //    SERVER-SIDE with the pincode headers a browser cannot send (CORS).
-    //    Same-origin relative URL, so it works from the Mini App with no setup.
-    async function searchJioMartViaNetlify(q, pin) {
-      try {
-        var url = '/.netlify/functions/jiomart-search?q=' + encodeURIComponent(q) + '&pincode=' + encodeURIComponent(pin);
-        var ctrl = new AbortController();
-        var timer = setTimeout(function() { ctrl.abort(); }, 15000);
-        var res = await fetch(url, { signal: ctrl.signal });
-        clearTimeout(timer);
-        var data = await res.json();
-        if (data && data.status === 'success' && Array.isArray(data.items) && data.items.length) {
-          return data.items.filter(function (it) { return it && it.url; });
-        }
-      } catch (e) {}
-      return null;
-    }
     // 1) Apps Script webhook: UrlFetchApp calls JioMart SERVER-SIDE with the
     //    full header set, so CORS and JioMart's browser bot-blocking never
     //    apply. This is the same code path that works when you run
@@ -1936,14 +2267,9 @@
 
       // Try every backend in order until one returns products.
       var results = [], sourceUsed = '';
-      // 0) Netlify Function (same server-side approach as the bot's
-      //    jiomart_search.py - the Netlify server calls JioMart with the
-      //    pincode headers a browser cannot send). Same-origin, so it works
-      //    from the Mini App with NO webhook/proxy setup.
-      var viaFn = await searchJioMartViaNetlify(q, pin);
-      if (viaFn && viaFn.length) { results = viaFn; sourceUsed = 'Netlify'; }
+      // 1) Apps Script webhook (server-side JioMart with pincode headers).
       var viaHook = await searchJioMartViaHook(q, pin);
-      if (!results.length && viaHook && viaHook.length) { results = viaHook; sourceUsed = 'Apps Script'; }
+      if (viaHook && viaHook.length) { results = viaHook; sourceUsed = 'Apps Script'; }
       if (!results.length) {
         var viaProxy = await searchJioMartViaProxy(q, pin);
         if (viaProxy && viaProxy.length) { results = viaProxy; sourceUsed = 'Local Proxy'; }
@@ -1995,7 +2321,17 @@
     async function handleAdminFormSubmit(e) {
       e.preventDefault();
       var isEdit = document.getElementById('editEan').value !== "";
-      var ean = isEdit ? document.getElementById('editEan').value : ("EAN-" + Date.now());
+      var eanField = document.getElementById('newProdEan');
+      var ean = isEdit ? document.getElementById('editEan').value
+                       : ((eanField && eanField.value.trim()) || ("EAN-" + Date.now()));
+      if (!isEdit) {
+        // EAN column: every product gets a scannable code (manual or from a scan).
+        var dupScan = window.STORE_CATALOG.find(function (x) { return String(x.ean).trim() === String(ean).trim(); });
+        if (dupScan) {
+          alert("❌ ଏହି EAN ପୂର୍ବରୁ ଅଛି: " + dupScan.product_name + " — Edit କରନ୍ତୁ କିମ୍ବା ଅଲଗା EAN ଦିଅନ୍ତୁ।");
+          return;
+        }
+      }
       var nm = document.getElementById('newProdName').value.trim();
       var mrp = document.getElementById('newProdMRP').value.trim();
       var sp = document.getElementById('newProdSP').value.trim();
@@ -2040,6 +2376,8 @@
       document.getElementById('newProdStock').value = '10';
       document.getElementById('newProdCat').value = '';
       document.getElementById('newProdImg').value = '';
+      var eanReset = document.getElementById('newProdEan');
+      if (eanReset) eanReset.value = '';
       updateImagePreview('');
       closeImageDropdown();
       document.getElementById('cancelEditBtn').classList.add('hidden');
@@ -2112,6 +2450,8 @@
       document.getElementById('newProdStock').value = p.stock_qty || 10;
       document.getElementById('newProdCat').value = p.category;
       document.getElementById('newProdImg').value = p.image_url;
+      var eanFill = document.getElementById('newProdEan');
+      if (eanFill) eanFill.value = p.ean || '';
       updateImagePreview(p.image_url);
       document.getElementById('cancelEditBtn').classList.remove('hidden');
       document.getElementById('adminFormCard').scrollIntoView({ behavior: 'smooth' });
@@ -2338,7 +2678,11 @@
         var os = document.getElementById('ordersScreen');
         if (os && !os.classList.contains('hidden')) renderOrders();
         var ad = document.getElementById('adminDashboard');
-        if (ad && !ad.classList.contains('hidden')) renderAdminOrders();
+        if (ad && !ad.classList.contains('hidden')) {
+          renderAdminOrders();
+          var ut = document.getElementById('admTab-users');
+          if (ut && !ut.classList.contains('hidden')) renderAdminUsers();
+        }
         return true;
       } catch (e) { return false; }
     }
@@ -2362,7 +2706,7 @@
       } catch (e) { return false; }
     }
     async function syncBannersFromSheet() {
-      // Cache-buster: Apps Script + Netlify edge-cache can serve a stale
+      // Cache-buster: Apps Script can serve a stale
       // config for minutes. The timestamp makes EVERY poll a fresh read so a
       // newly-set admin banner appears on customer phones within ~2 minutes.
       var url = sheetHookUrl('action=GET_CONFIG&_=' + Date.now());
@@ -2436,12 +2780,17 @@
 
     function prefillOrderForm() {
       var u = getTgUser();
+      var s = getSessionUser();
       var addrs = getAddresses();
       var def = addrs.find(a => a.isDefault) || addrs[0];
       if (def) {
-        document.getElementById('orderCustName').value = def.name;
-        document.getElementById('orderCustPhone').value = def.phone;
+        // Session profile wins; saved default address fills the rest.
+        document.getElementById('orderCustName').value = (s && s.name) || def.name || ((u && u.first_name) || '');
+        document.getElementById('orderCustPhone').value = (s && s.phone) || def.phone;
         document.getElementById('orderCustAddress').value = def.address;
+      } else if (s) {
+        document.getElementById('orderCustName').value = s.name || '';
+        document.getElementById('orderCustPhone').value = s.phone || '';
       } else if (u) {
         document.getElementById('orderCustName').value = u.first_name || '';
       }
@@ -2488,6 +2837,14 @@
         list.push({ id: 'A' + Date.now(), name, phone, address, isDefault: isDefault || list.length === 0 });
       }
       setAddresses(list);
+      // If this phone matches the logged-in user, refresh their profile name too.
+      try {
+        var sess = getSessionUser();
+        if (sess && String(sess.phone || '').trim() === String(phone || '').trim() && name) {
+          sess.name = name;
+          setSessionUser(sess);
+        }
+      } catch (e) {}
       // Sync to the shared database (Telegram bot reads the same entry).
       pushAddressToSheet((id && list.find(x => x.id === id)) || list[list.length - 1]);
       closeAddressForm();
@@ -2498,18 +2855,76 @@
       var list = getAddresses();
       if (!list.length) { box.innerHTML = '<p class="text-center text-xs text-slate-400 py-6">କୌଣସି ଠିକଣା ସେଭ୍ ହୋଇନାହିଁ।</p>'; return; }
       box.innerHTML = list.map(a => `
-        <div class="bg-white p-3 rounded-2xl border border-slate-200">
-          <div class="font-bold text-xs">${a.name} · ${a.phone}</div>
+        <div class="bg-white p-3 rounded-2xl border ${a.isDefault ? 'border-emerald-400 ring-1 ring-emerald-200' : 'border-slate-200'}">
+          <div class="flex items-center justify-between gap-2">
+            <div class="font-bold text-xs min-w-0">${a.name} · ${a.phone}</div>
+            ${a.isDefault ? '<span class="text-[9px] bg-emerald-50 text-emerald-700 font-black px-1.5 py-0.5 rounded shrink-0">✓ DEFAULT</span>' : ''}
+          </div>
           <div class="text-[11px] text-slate-600 mt-0.5">${a.address}</div>
+          <div class="flex gap-1.5 mt-2">
+            <button onclick="openAddressFormEdit_('${a.id}')" class="flex-1 py-1.5 rounded-lg bg-blue-50 text-[#1864ab] text-[10px] font-black border border-blue-100">✏️ Edit</button>
+            ${a.isDefault ? '' : `<button onclick="setDefaultAddress_('${a.id}')" class="flex-1 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black border border-emerald-200">✓ Default କରନ୍ତୁ</button>`}
+            <button onclick="deleteAddress_('${a.id}')" class="flex-1 py-1.5 rounded-lg bg-rose-50 text-rose-600 text-[10px] font-black border border-rose-200"><i class="ph-bold ph-trash"></i> Delete</button>
+          </div>
         </div>
       `).join('');
     }
+    // Address book: edit fill-in, default switching, delete.
+    function openAddressFormEdit_(id) {
+      var a = getAddresses().find(x => x.id === id);
+      if (!a) return;
+      openAddressForm(id);
+      document.getElementById('addrName').value = a.name || '';
+      document.getElementById('addrPhone').value = a.phone || '';
+      document.getElementById('addrText').value = a.address || '';
+      document.getElementById('addrDefault').checked = !!a.isDefault;
+    }
+    function setDefaultAddress_(id) {
+      var list = getAddresses();
+      list.forEach(function (a) { a.isDefault = (String(a.id) === String(id)); });
+      setAddresses(list);
+      var d = list.find(function (a) { return String(a.id) === String(id); });
+      if (d) pushAddressToSheet(d);
+      renderAddressList();
+      prefillOrderForm();
+    }
+    function deleteAddress_(id) {
+      var list = getAddresses();
+      var gone = list.filter(function (a) { return String(a.id) === String(id); })[0];
+      list = list.filter(function (a) { return String(a.id) !== String(id); });
+      if (gone && gone.isDefault && list.length) list[0].isDefault = true;
+      setAddresses(list);
+      try {
+        if (gone && gone.phone) {
+          var sess = getSessionUser();
+          if (sess && String(sess.phone || '').trim() === String(gone.phone || '').trim()) logoutUser();
+        }
+      } catch (e) {}
+      renderAddressList();
+      renderProfile();
+    }
 
     function renderProfile() {
+      var s = getSessionUser();
       var u = getTgUser();
-      var name = (u && u.first_name) || 'Customer';
+      var name = (s && s.name) || ((u && u.first_name) || 'Customer');
+      var phone = (s && s.phone) || '';
+      var tag = (s && s.provider) ? { otp: '📱 OTP', google: '🔵 Google', telegram: '✈️ Telegram', guest: '👋 Guest' }[s.provider] || '' : '';
       document.getElementById('profName').innerText = name;
       document.getElementById('profAvatar').innerText = name.charAt(0).toUpperCase();
+      document.getElementById('profPhone').innerText = phone ? ('📞 ' + phone) : '';
+      var pid = document.getElementById('profId');
+      if (pid) pid.innerText = tag + ((s && s.tg_id) ? (' · TG ' + s.tg_id) : '');
+      var card = document.getElementById('authRowCard');
+      if (card) {
+        card.innerHTML = s
+          ? '<div class="flex items-center justify-between gap-2">' +
+            '<span class="text-xs text-slate-600">👋 <b class="text-slate-800">' + name + '</b>' +
+            (tag ? ' <span class="ml-1 text-[10px] bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.5 rounded">' + tag + '</span>' : '') + '</span>' +
+            '<button onclick="logoutUser()" class="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-[11px] font-black flex items-center gap-1"><i class="ph-bold ph-sign-out"></i> Logout</button>' +
+            '</div>'
+          : '<button onclick="openLoginModal()" class="w-full py-2.5 rounded-xl bg-[#1864ab] hover:bg-blue-800 text-white font-extrabold text-xs flex items-center justify-center gap-1.5"><i class="ph-bold ph-user-circle"></i> ଲଗଇନ୍ / ସାଇନ୍-ଅପ୍ କରନ୍ତୁ (Login)</button>';
+      }
       document.getElementById('profOrderCount').innerText = getMyOrders().length;
       document.getElementById('profAddrCount').innerText = getAddresses().length;
     }
@@ -2520,6 +2935,562 @@
       isEnglish = !isEnglish;
       document.getElementById('langBtnText').innerText = isEnglish ? "ଓଡ଼ିଆ" : "English";
       document.getElementById('lblStoreName').innerText = isEnglish ? "MUNNA MOBILE & GROCERY" : "ମୁନ୍ନା ମୋବାଇଲ୍ ଆଣ୍ଡ୍ ଗ୍ରୋସରୀ";
+    }
+
+    // --- PRODUCT SCANNER (EAN/QR: camera + photo + manual) ---
+    var scannerCtx = 'customer';   // 'customer' | 'admin' | 'quickbill'
+    var html5Qr = null;
+    var camRunning = false;
+    var qbLines = [];              // store-side Quick Bill running lines
+
+    function openScanner(ctx) {
+      scannerCtx = ctx || 'customer';
+      document.getElementById('scannerModal').classList.remove('hidden');
+      document.getElementById('scanResultBanner').classList.add('hidden');
+      document.getElementById('quickBillBox').classList.toggle('hidden', scannerCtx !== 'quickbill');
+      document.getElementById('scanManualInput').value = '';
+      if (scannerCtx === 'quickbill') renderQuickBill();
+      startCameraScan();
+    }
+
+    function closeScanner() {
+      stopCameraScan();
+      document.getElementById('scannerModal').classList.add('hidden');
+    }
+
+    function showScanBanner(main, actions) {
+      var b = document.getElementById('scanResultBanner');
+      b.innerHTML = '<div class="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-xs text-emerald-900 leading-snug">' + main + '</div>' +
+        (actions ? '<div class="flex gap-2">' + actions + '</div>' : '');
+      b.classList.remove('hidden');
+    }
+
+    function scannerBtn(label, fn) {
+      return '<button onclick="' + fn + '" class="flex-1 py-2 rounded-xl bg-[#1864ab] hover:bg-blue-800 text-white text-[11px] font-extrabold">' + label + '</button>';
+    }
+
+    function startCameraScan() {
+      var idle = document.getElementById('scannerIdleHint');
+      if (typeof Html5Qrcode === 'undefined') {
+        if (idle) { idle.style.display = ''; idle.innerText = '❌ Scanner library load ହେଲା ନାହିଁ — ଇଣ୍ଟରନେଟ୍ ଯାଞ୍ଚ କରି ତଳେ ଫଟୋ / EAN ବ୍ୟବହାର କରନ୍ତୁ'; }
+        return;
+      }
+      if (idle) idle.style.display = 'none';
+      if (camRunning) return;
+      if (!html5Qr) html5Qr = new Html5Qrcode('scannerReader', { verbose: false });
+      html5Qr.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 230, height: 160 } },
+        function (decodedText) { onScanResult(decodedText); },
+        function () {}
+      ).then(function () { camRunning = true; })
+       .catch(function () {
+         camRunning = false;
+         if (idle) { idle.style.display = ''; idle.innerText = '📷 Camera ଚାଲିଲା ନାହିଁ (permission / କ୍ୟାମେରା ନାହିଁ) — ତଳେ ଫଟୋ କିମ୍ବା ହାତରେ EAN ଲେଖନ୍ତୁ'; }
+       });
+    }
+
+    function stopCameraScan() {
+      if (html5Qr && camRunning) {
+        var h = html5Qr;
+        camRunning = false;
+        h.stop().then(function () { try { h.clear(); } catch (e) {} html5Qr = null; }).catch(function () {});
+      }
+    }
+
+    function scanPhotoFile(file) {
+      if (typeof Html5Qrcode === 'undefined') { alert('❌ Scanner library load ହେଲା ନାହିଁ — ଇଣ୍ଟରନେଟ୍ ଯାଞ୍ଚ କରନ୍ତୁ।'); return; }
+      var h = new Html5Qrcode('scannerReader', { verbose: false });
+      var p;
+      try {
+        p = (typeof h.scanFileV2 === 'function') ? h.scanFileV2(file, false) : h.scanFile(file, false);
+      } catch (e) { alert('❌ ସ୍କାନ୍ ତ୍ରୁଟି: ' + e.message); return; }
+      p.then(function (r) {
+        var txt = (typeof r === 'string') ? r : ((r && r.decodedText) || '');
+        html5Qr = null;
+        onScanResult(txt);
+      }).catch(function () {
+        alert('❌ ଫଟୋରେ ବାରକୋଡ୍ / QR ମିଳିଲା ନାହିଁ — ଅନ୍ୟ ଫଟୋ ଚେଷ୍ଟା କରନ୍ତୁ।');
+        startCameraScan();
+      });
+    }
+    (function wirePhotoScan_() {
+      var f = document.getElementById('scanPhotoInput');
+      if (!f || !f.addEventListener) return;
+      f.addEventListener('change', function () {
+        var file = f.files && f.files[0];
+        f.value = '';
+        if (!file) return;
+        stopCameraScan();
+        setTimeout(function () { scanPhotoFile(file); }, 400);
+      });
+    })();
+
+    function manualScanGo() {
+      var v = document.getElementById('scanManualInput').value.trim();
+      if (!v) return;
+      onScanResult(v);
+    }
+
+    // One scan/text -> route by context (customer search+cart, admin lookup, POS bill).
+    function onScanResult(text) {
+      text = String(text || '').trim();
+      if (!text) return;
+      if (scannerCtx === 'quickbill') { qbAddByCode(text); return; }
+      var p = window.STORE_CATALOG.find(function (x) { return String(x.ean).trim() === text; });
+
+      if (scannerCtx === 'customer') {
+        if (p) {
+          saveScanHistory_(p);
+          handleSearch(p.product_name);                 // quick search: card visible
+          var sEl = document.getElementById('searchInput');
+          if (sEl) sEl.value = p.product_name;
+          setQty(p.ean, (cart[p.ean] || 0) + 1);        // quick billing: one scan = one in cart
+          showScanBanner(
+            '<b>✅ ' + p.product_name + '</b><br>Rs.' + money(p.selling_price) + ' — କାର୍ଟରେ 1ଟି ଯୋଡ଼ାଗଲା',
+            scannerBtn('📸 ଅନ୍ୟ ସ୍କାନ୍', 'startCameraScan()') +
+            scannerBtn('🛒 କାର୍ଟ ଦେଖନ୍ତୁ', 'closeScanner(); openCartDrawer()'));
+          return;
+        }
+        handleSearch(text);                              // name / QR text fallback search
+        var s2 = document.getElementById('searchInput');
+        if (s2) s2.value = text;
+        showScanBanner('🔍 “' + text + '” ପାଇଁ ଖୋଜାଗଲା — ଫଳାଫଳ ତଳେ ଦେଖନ୍ତୁ',
+          scannerBtn('📸 ଅନ୍ୟ ସ୍କାନ୍', 'startCameraScan()'));
+        return;
+      }
+
+      // Admin / store side lookup
+      if (p) {
+        var dbEl = document.getElementById('dbSearchInput');
+        if (dbEl) dbEl.value = text;
+        renderAdminList();
+        showScanBanner(
+          '<b>' + p.product_name + '</b><br>Rs.' + money(p.selling_price) + ' · Stock: ' + (p.stock_qty || 0),
+          scannerBtn('✏️ Edit', "editAdminProductByEan(decodeURIComponent('" + encodeURIComponent(String(p.ean)).replace(/'/g, '%27') + "'))") +
+          scannerBtn('📸 ଅନ୍ୟ ସ୍କାନ୍', 'startCameraScan()'));
+        return;
+      }
+      quickAddWithEanPrompt_(text);                     // unknown EAN -> quick add
+    }
+
+    // --- STORE-SIDE QUICK BILL (POS): scan -> running bill -> order in Sheet ---
+    function qbAddByCode(code) {
+      var p = window.STORE_CATALOG.find(function (x) { return String(x.ean).trim() === String(code).trim(); });
+      if (!p) {
+        showScanBanner('❌ EAN <b>' + code + '</b> କାଟାଲଗ୍‌ରେ ନାହିଁ — ପ୍ରଥମେ ଯୋଡ଼ନ୍ତୁ।',
+          scannerBtn('➕ ପ୍ରୋଡକ୍ଟ ଯୋଡ଼ନ୍ତୁ', "quickAddWithEan(decodeURIComponent('" + encodeURIComponent(String(code)).replace(/'/g, '%27') + "'))") +
+          scannerBtn('📸 ପୁଣି ସ୍କାନ୍', 'startCameraScan()'));
+        return;
+      }
+      var line = qbLines.find(function (l) { return String(l.ean) === String(p.ean); });
+      if (line) line.qty += 1;
+      else qbLines.push({ ean: String(p.ean), name: p.product_name, price: parseFloat(p.selling_price) || 0, qty: 1 });
+      renderQuickBill();
+      showScanBanner('✅ <b>' + p.product_name + '</b> (+1) — Rs.' + money(p.selling_price),
+        scannerBtn('📸 ଅନ୍ୟ ସ୍କାନ୍', 'startCameraScan()'));
+    }
+
+    function renderQuickBill() {
+      var box = document.getElementById('qbItems');
+      if (!box) return;
+      var total = 0;
+      if (!qbLines.length) {
+        box.innerHTML = '<p class="text-[11px] text-slate-400 text-center py-1">ବାରକୋଡ୍ ସ୍କାନ୍ କରନ୍ତୁ — ଜିନିଷ ଏଠାରେ ଯୋଡ଼ିବ</p>';
+      } else {
+        box.innerHTML = qbLines.map(function (l, i) {
+          total += l.price * l.qty;
+          return '<div class="flex items-center justify-between text-[11px] bg-slate-50 px-2 py-1.5 rounded-lg gap-2">' +
+            '<span class="font-bold flex-1 min-w-0 truncate">' + l.name + '</span>' +
+            '<span class="flex items-center gap-1">' +
+            '<button onclick="qbChange(' + i + ',-1)" class="w-5 h-5 rounded bg-slate-200 font-bold">-</button>' +
+            '<b class="w-5 text-center">' + l.qty + '</b>' +
+            '<button onclick="qbChange(' + i + ',1)" class="w-5 h-5 rounded bg-[#1864ab] text-white font-bold">+</button>' +
+            '</span>' +
+            '<span class="font-black text-[#1864ab] w-16 text-right">Rs.' + money(l.price * l.qty) + '</span>' +
+            '<button onclick="qbRemove(' + i + ')" class="text-rose-600 font-bold px-1"><i class="ph-bold ph-trash"></i></button>' +
+            '</div>';
+        }).join('');
+      }
+      var t = document.getElementById('qbTotal');
+      if (t) t.innerText = 'Rs.' + money(total);
+    }
+
+    function qbChange(i, d) {
+      if (!qbLines[i]) return;
+      qbLines[i].qty += d;
+      if (qbLines[i].qty <= 0) qbLines.splice(i, 1);
+      renderQuickBill();
+    }
+
+    function qbRemove(i) { qbLines.splice(i, 1); renderQuickBill(); }
+
+    function saveQuickBill() {
+      if (!qbLines.length) { alert('⚡ ଖାଲି ବିଲ୍ — ପ୍ରଥମେ ବାରକୋଡ୍ ସ୍କାନ୍ କରନ୍ତୁ!'); return; }
+      var name = (((document.getElementById('qbName') || {}).value) || '').trim() || 'Store Walk-in';
+      var phone = (((document.getElementById('qbPhone') || {}).value) || '').trim();
+      var lines = qbLines.slice();
+      var total = lines.reduce(function (a, l) { return a + l.price * l.qty; }, 0);
+      var orderObj = {
+        order_id: makeOrderId(),
+        timestamp: sheetTimestamp(new Date()),
+        customer_name: name,
+        phone: phone,
+        address: 'Store counter (in-store billing)',
+        items: itemsToText(lines),
+        total: total,
+        channel: 'webapp',
+        telegram_user_id: '',
+        status: 'pending',
+        status_msg_id: '',
+        location: '',
+        payment: 'COD',
+        lines: lines
+      };
+      var orders = getMyOrders();
+      orders.unshift(orderObj);
+      setMyOrders(orders);
+      postToSheet({ action: 'create_order', order: orderObj });  // Sheet: stock deduct + admin sync
+      qbLines = [];
+      var nEl = document.getElementById('qbName'); if (nEl) nEl.value = '';
+      var pEl = document.getElementById('qbPhone'); if (pEl) pEl.value = '';
+      renderQuickBill();
+      renderAdminOrders();
+      alert('✅ ବିଲ୍ ସେଭ୍ ହେଲା!\nOrder: ' + orderObj.order_id + '\nମୋଟ: Rs.' + money(total) + '\n(ଷ୍ଟକ୍ ନିଜେ କମିବ)');
+      closeScanner();
+      switchAdminTab('orders');
+    }
+
+    // Unknown EAN on the store side -> offer instant "add product" with EAN pre-filled.
+    function quickAddWithEanPrompt_(ean) {
+      showScanBanner('🆕 EAN <b>' + ean + '</b> କାଟାଲଗ୍‌ରେ ନାହିଁ',
+        scannerBtn('➕ ନୂଆ ପ୍ରୋଡକ୍ଟ ଯୋଡ଼ନ୍ତୁ', "quickAddWithEan(decodeURIComponent('" + encodeURIComponent(String(ean)).replace(/'/g, '%27') + "'))") +
+        scannerBtn('📸 ପୁଣି ସ୍କାନ୍', 'startCameraScan()'));
+    }
+
+    function quickAddWithEan(ean) {
+      closeScanner();
+      switchAdminTab('stock');
+      resetAdminForm();
+      var el = document.getElementById('newProdEan');
+      if (el) el.value = ean;
+      var n = document.getElementById('newProdName');
+      if (n && n.focus) n.focus();
+      var card = document.getElementById('adminFormCard');
+      if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth' });
+      alert('📋 EAN ବସିଗଲା — ନାଁ, ଦାମ୍, ଫଟୋ ଦେଇ Save କରନ୍ତୁ।');
+    }
+
+    function editAdminProductByEan(ean) {
+      var idx = window.STORE_CATALOG.findIndex(function (x) { return String(x.ean) === String(ean); });
+      if (idx < 0) return;
+      closeScanner();
+      switchAdminTab('stock');
+      editAdminProduct(idx);
+    }
+
+    // --- SAVED SCANS (customer): recent EAN/Photo scans re-usable in one tap ---
+    function saveScanHistory_(p) {
+      try {
+        var h = JSON.parse(localStorage.getItem('MUNA_SCAN_HISTORY') || '[]');
+        if (!Array.isArray(h)) h = [];
+        h = h.filter(function (x) { return String(x.ean) !== String(p.ean); });
+        h.unshift({ ean: String(p.ean), name: p.product_name, price: p.selling_price, ts: Date.now() });
+        localStorage.setItem('MUNA_SCAN_HISTORY', JSON.stringify(h.slice(0, 10)));
+      } catch (e) {}
+      renderScanHistory();
+    }
+
+    function renderScanHistory() {
+      var row = document.getElementById('scanHistoryRow');
+      if (!row) return;
+      var h = [];
+      try { h = JSON.parse(localStorage.getItem('MUNA_SCAN_HISTORY') || '[]') || []; } catch (e) {}
+      if (!h.length) { row.classList.add('hidden'); row.innerHTML = ''; return; }
+      row.classList.remove('hidden');
+      row.innerHTML = '<span class="shrink-0 text-slate-400 font-bold py-1" title="ସାମ୍ପ୍ରତିକ ସ୍କାନ୍">🕘</span>' +
+        h.map(function (x) {
+          return '<button onclick="quickSearchFromHistory(\'' + encodeURIComponent(String(x.name)).replace(/'/g, '%27') + '\')" class="shrink-0 px-2.5 py-1 bg-white border border-slate-200 rounded-full text-[10px] font-bold text-slate-600 whitespace-nowrap">' + x.name + '</button>';
+        }).join('');
+    }
+
+    function quickSearchFromHistory(name) {
+      var n = decodeURIComponent(name);
+      var el = document.getElementById('searchInput');
+      if (el) el.value = n;
+      handleSearch(n);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ================= CUSTOMER LOGIN & USER PANEL =================
+    // Session: { name, phone, tg_id, provider } in MUNA_USER_SESSION.
+    function getSessionUser() {
+      try { return JSON.parse(localStorage.getItem('MUNA_USER_SESSION') || 'null'); } catch (e) { return null; }
+    }
+    function setSessionUser(u) {
+      try {
+        if (u) localStorage.setItem('MUNA_USER_SESSION', JSON.stringify(u));
+        else localStorage.removeItem('MUNA_USER_SESSION');
+      } catch (e) {}
+      updateHeaderAuth();
+    }
+    function loginDone(u, msg) {
+      if (!u.phone && u.provider !== 'guest') return false;
+      setSessionUser(u);
+      closeLoginModal();
+      try {
+        var addrs = getAddresses();
+        var match = addrs.filter(function (a) { return String(a.phone || '').trim() === String(u.phone || '').trim(); })[0];
+        if (match && u.name) {
+          match.name = match.name || u.name;
+          setAddresses(addrs);
+        }
+      } catch (e) {}
+      prefillOrderForm();
+      if (msg) alert(msg);
+      return true;
+    }
+    function logoutUser() {
+      setSessionUser(null);
+      renderProfile();
+    }
+    function sessionFirstName() {
+      var s = getSessionUser();
+      var n = s && s.name ? String(s.name).trim().split(' ')[0] : '';
+      return n || (s && s.phone ? '👤' : '');
+    }
+
+    // Header button: Login (logged out) / first name (logged in).
+    function updateHeaderAuth() {
+      var s = getSessionUser();
+      var t = document.getElementById('headerAuthText');
+      if (!t) return;
+      t.innerText = s ? (sessionFirstName() || 'Profile') : 'Login';
+    }
+    function onHeaderAuth() {
+      if (getSessionUser()) showScreen('profile');
+      else openLoginModal();
+    }
+
+    // Login modal open/close + tabs.
+    function openLoginModal() {
+      document.getElementById('loginModal').classList.remove('hidden');
+      document.getElementById('loginPhone').value = '';
+      document.getElementById('loginOtp').value = '';
+      fillTgLoginInfo();
+      fillGoogleTab();
+      switchLoginTab('otp');
+    }
+    function closeLoginModal() { document.getElementById('loginModal').classList.add('hidden'); }
+    function switchLoginTab(t) {
+      ['otp', 'google', 'tg'].forEach(function (tab) {
+        var el = document.getElementById('loginTab-' + tab);
+        if (el) el.classList.toggle('hidden', tab !== t);
+        var b = document.getElementById('loginTabBtn-' + tab);
+        if (b) {
+          b.classList.toggle('border-[#1864ab]', tab === t);
+          b.classList.toggle('text-[#1864ab]', tab === t);
+          b.classList.toggle('border-transparent', tab !== t);
+        }
+      });
+      if (t === 'tg') fillTgLoginInfo();
+      if (t === 'google') fillGoogleTab();
+    }
+
+    // --- Mobile OTP (4-digit, 3 min expiry, stored in localStorage) ---
+    function validPhone_(ph) { return /^[6-9]\d{9}$/.test(String(ph || '').trim()); }
+    function sendOtp() {
+      var phone = document.getElementById('loginPhone').value.trim();
+      if (!validPhone_(phone)) { alert('ଦୟାକରି ଠିକ୍ 10-ଅଙ୍କ ମୋବାଇଲ୍ ନମ୍ବର ଦିଅନ୍ତୁ।'); return; }
+      var code = String(Math.floor(1000 + Math.random() * 9000));
+      try { localStorage.setItem('MUNA_LOGIN_OTP', JSON.stringify({ code: code, phone: phone, exp: Date.now() + 3 * 60000 })); } catch (e) {}
+      document.getElementById('loginOtp').value = '';
+      var hint = document.getElementById('otpHint');
+      hint.classList.remove('hidden');
+      hint.innerText = '✅ ' + phone + ' ପାଇଁ OTP ତିଆରି ହେଲା (Demo SMS): ' + code + '  ·  ୩ ମିନିଟ୍ ମଧ୍ୟରେ ଲେଖନ୍ତୁ।';
+      document.getElementById('loginOtp').focus();
+    }
+    function verifyOtp() {
+      var phone = document.getElementById('loginPhone').value.trim();
+      var typed = document.getElementById('loginOtp').value.trim();
+      var saved = null;
+      try { saved = JSON.parse(localStorage.getItem('MUNA_LOGIN_OTP') || 'null'); } catch (e) {}
+      if (!saved || saved.phone !== phone) { alert('❌ ପ୍ରଥମେ ନମ୍ବର ଦେଇ "OTP ପଠାନ୍ତୁ" ଚାପନ୍ତୁ।'); return; }
+      if (Date.now() > (saved.exp || 0)) { alert('⏰ OTP ମିଆଦ ସରିଗଲା — ପୁଣି ପଠାନ୍ତୁ।'); return; }
+      if (typed !== String(saved.code)) { alert('❌ ଭୁଲ୍ OTP — ପୁଣି ଲେଖନ୍ତୁ।'); return; }
+      try { localStorage.removeItem('MUNA_LOGIN_OTP'); } catch (e) {}
+      var typedName = document.getElementById('loginName').value.trim();
+      var known = '';
+      try {
+        var m = getAddresses().filter(function (a) { return String(a.phone || '').trim() === phone; })[0];
+        if (m && m.name) known = m.name;
+      } catch (e) {}
+      var tgu = getTgUser();
+      loginDone({
+        name: typedName || known || ((tgu && tgu.first_name) || '') || 'Customer',
+        phone: phone,
+        tg_id: (tgu && tgu.id) ? String(tgu.id) : '',
+        provider: 'otp'
+      }, '✅ ଲଗଇନ୍ ସଫଳ ହେଲା! ସ୍ୱାଗତ, ' + (typedName || known || 'ଗ୍ରାହକ') + '।');
+      renderProfile();
+    }
+
+    // --- Google Sign-In (One-Tap / OAuth via Google Identity Services) ---
+    function getGoogleClientId_() {
+      var q = '';
+      try { q = new URLSearchParams(window.location.search).get('gcid') || ''; } catch (e) {}
+      var saved = '';
+      try { saved = localStorage.getItem('munna_google_client_id') || ''; } catch (e) {}
+      if (saved) return String(saved).trim();
+      if (q) {
+        try { localStorage.setItem('munna_google_client_id', String(q).trim()); } catch (e) {}
+        return String(q).trim();
+      }
+      return '';
+    }
+    function fillGoogleTab() {
+      var box = document.getElementById('googleBtnBox');
+      var msg = document.getElementById('googleCfgMsg');
+      if (!box || !msg) return;
+      box.innerHTML = '';
+      msg.innerText = '';
+      var cid = getGoogleClientId_();
+      if (!cid) {
+        msg.innerHTML = '⚙️ Admin: Google Cloud Console → OAuth Client ID ବନାଇ URL ରେ <b>?gcid=YOUR_CLIENT_ID</b> ଦିଅନ୍ତୁ (ଥରେ ଦେଲେ ସେଭ୍ ହୋଇଯିବ) ।<br>ଏବେ ପାଇଁ ଡେମୋ ବଟନ୍ ବ୍ୟବହାର କରନ୍ତୁ ।';
+        box.innerHTML = '<button onclick="googleDemoLogin()" class="px-4 py-2.5 rounded-xl bg-white border border-slate-300 shadow-sm text-xs font-bold text-slate-700 flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-[#4285F4] text-white text-[10px] font-black flex items-center justify-center">G</span> Demo ଭାବେ Google ଲଗଇନ୍</button>';
+        return;
+      }
+      try {
+        msg.innerText = 'ଗୁଗଲ୍ ବଟନ୍ / One-Tap ଖୋଲୁଛି… (OAuth Client ID ସେଟ୍)';
+        loadGisScript_(function (ok) { renderGoogleButton_(cid, ok); });
+      } catch (e) {
+        msg.innerText = '❌ Google script load ହେଲା ନାହିଁ — OTP/Telegram ବ୍ୟବହାର କରନ୍ତୁ ।';
+      }
+    }
+    function loadGisScript_(cb) {
+      if (window.google && window.google.accounts && window.google.accounts.id) { cb(true); return; }
+      var s = document.getElementById('gisScriptTag');
+      if (s) { setTimeout(function () { cb(!!(window.google && window.google.accounts)); }, 4000); return; }
+      var tag = document.createElement('script');
+      tag.id = 'gisScriptTag';
+      tag.src = 'https://accounts.google.com/gsi/client';
+      tag.async = true;
+      tag.defer = true;
+      tag.onload = function () { cb(true); };
+      tag.onerror = function () { cb(false); };
+      document.head.appendChild(tag);
+    }
+    function renderGoogleButton_(cid, ok) {
+      var box = document.getElementById('googleBtnBox');
+      var msg = document.getElementById('googleCfgMsg');
+      if (!ok || !window.google || !window.google.accounts) {
+        if (box) box.innerHTML = '<button onclick="googleDemoLogin()" class="px-4 py-2 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-700">Demo ଭାବେ ଲଗଇନ୍</button>';
+        if (msg) msg.innerText = '❌ Google ଯୋଗାଯୋଗ ନାହିଁ — ଇଣ୍ଟରନେଟ୍ ଯାଞ୍ଚ କରନ୍ତୁ ।';
+        return;
+      }
+      try {
+        window.google.accounts.id.initialize({ client_id: cid, callback: googleCredential_, auto_select: false });
+        window.google.accounts.id.renderButton(box, { theme: 'outline', size: 'large', width: 250, text: 'signin_with' });
+        try { window.google.accounts.id.prompt(); } catch (e) {}
+        if (msg) msg.innerText = 'ଆପଣଙ୍କ ଗୁଗଲ୍ ଆକାଉଣ୍ଟ୍ ବାଛନ୍ତୁ ।';
+      } catch (e) {
+        if (msg) msg.innerText = '❌ Google ସେଟଅପ୍ ତ୍ରୁଟି — Client ID ଯାଞ୍ଚ କରନ୍ତୁ ।';
+      }
+    }
+    function googleCredential_(resp) {
+      var payload = {};
+      try {
+        var parts = String((resp && resp.credential) || '').split('.');
+        payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      } catch (e) { payload = {}; }
+      var email = payload.email || '';
+      try {
+        var savedPh = localStorage.getItem('munna_google_phone_' + email) || '';
+        if (!savedPh) {
+          var ask = prompt('📱 ଗୁଗଲ୍ ଅର୍ଡର ପାଇଁ ମୋବାଇଲ୍ ନମ୍ବର ଦିଅନ୍ତୁ (10 ଅଙ୍କ):', '') || '';
+          ask = String(ask).replace(/\D/g, '').slice(-10);
+          if (/^[6-9]\d{9}$/.test(ask)) {
+            savedPh = ask;
+            try { localStorage.setItem('munna_google_phone_' + email, ask); } catch (e) {}
+          }
+        }
+        if (!savedPh) { alert('ମୋବାଇଲ୍ ନମ୍ବର ବିନା ଅର୍ଡର କରିପାରିବେ ନାହିଁ ।'); return; }
+        var tgu = getTgUser();
+        loginDone({
+          name: payload.name || payload.given_name || email.split('@')[0] || 'Customer',
+          phone: savedPh, email: email,
+          tg_id: (tgu && tgu.id) ? String(tgu.id) : '',
+          provider: 'google'
+        }, '✅ Google ଲଗଇନ୍ ସଫଳ! ସ୍ୱାଗତ ।');
+        renderProfile();
+      } catch (e) { alert('❌ Google ଲଗଇନ୍ ବିଫଳ ହେଲା ।'); }
+    }
+    function googleDemoLogin() {
+      var nm = (prompt('📝 ଡେମୋ Google ଲଗଇନ୍ — ଆପଣଙ୍କ ନାଁ:', '') || '').trim();
+      if (!nm) return;
+      var ph = (prompt('📱 ମୋବାଇଲ୍ ନମ୍ବର (10 ଅଙ୍କ):', '') || '').replace(/\D/g, '').slice(-10);
+      if (!/^[6-9]\d{9}$/.test(ph)) { alert('ଠିକ୍ ନମ୍ବର ଦିଅନ୍ତୁ ।'); return; }
+      var tgu = getTgUser();
+      loginDone({
+        name: nm, phone: ph,
+        tg_id: (tgu && tgu.id) ? String(tgu.id) : '',
+        provider: 'google'
+      }, '✅ (Demo) Google ଲଗଇନ୍ ସଫଳ! ସ୍ୱାଗତ, ' + nm + ' ।');
+      renderProfile();
+    }
+
+    // --- Telegram auto-login (WebApp user -> profile, no typing) ---
+    function fillTgLoginInfo() {
+      var box = document.getElementById('tgLoginInfo');
+      var btn = document.getElementById('tgLoginBtn');
+      if (!box) return;
+      var u = getTgUser();
+      if (u) {
+        var nm = [u.first_name, u.last_name].filter(Boolean).join(' ') || 'Telegram User';
+        box.innerHTML = '<b>✅ ମିଳିଲା:</b> ' + nm +
+          (u.username ? ' (@' + u.username + ')' : '') +
+          (u.phone_number ? '<br>📞 ' + u.phone_number : '');
+        if (btn) btn.disabled = false;
+      } else {
+        box.innerHTML = '⚠️ ଟେଲିଗ୍ରାମ୍ ବାହାରେ (ବ୍ରାଉଜର୍‌ରେ) ଖୋଲାଅଛି — ବଟ୍ ଭିତରେ ଖୋଲିଲେ ନିଜେ ଲଗଇନ୍ ହେବ ।';
+        if (btn) btn.disabled = true;
+      }
+    }
+    function telegramLogin() {
+      var u = getTgUser();
+      if (!u) { alert('ଟେଲିଗ୍ରାମ୍ ବଟ୍ ଭିତରେ ଖୋଲନ୍ତୁ ।'); return; }
+      var nm = [u.first_name, u.last_name].filter(Boolean).join(' ') || (u.username || 'Telegram User');
+      var ph = u.phone_number || '';
+      if (!ph) {
+        ph = (prompt('📱 ପ୍ରଥମ ଅର୍ଡର ପାଇଁ ମୋବାଇଲ୍ ନମ୍ବର ଦିଅନ୍ତୁ (10 ଅଙ୍କ):', '') || '').replace(/\D/g, '').slice(-10);
+        if (ph && !/^[6-9]\d{9}$/.test(ph)) { alert('ଠିକ୍ ନମ୍ବର ଦିଅନ୍ତୁ ।'); return; }
+      }
+      loginDone({
+        name: nm, phone: ph || '',
+        tg_id: u.id ? String(u.id) : '',
+        provider: 'telegram'
+      }, '✅ Telegram ଲଗଇନ୍ ସଫଳ! ସ୍ୱାଗତ, ' + nm + ' ।');
+      renderProfile();
+    }
+    // Silent auto-login inside Telegram (session empty + tg user present).
+    function autoTelegramLogin_() {
+      if (getSessionUser()) return;
+      var u = getTgUser();
+      if (!u) return;
+      var nm = [u.first_name, u.last_name].filter(Boolean).join(' ') || (u.username || 'Telegram User');
+      setSessionUser({
+        name: nm,
+        phone: u.phone_number || '',
+        tg_id: u.id ? String(u.id) : '',
+        provider: 'telegram'
+      });
+    }
+
+    // --- Guest checkout (no mandatory pre-login) ---
+    function guestCheckout() {
+      closeLoginModal();
+      showScreen('cart');
+      alert('👋 ବିନା ଲଗଇନ୍‌ରେ ଅର୍ଡର କରନ୍ତୁ — ନାଁ / ଫୋନ୍ / ଠିକଣା ଲେଖି Checkout କରନ୍ତୁ ।');
     }
 
     // --- INITIALIZATION ---
@@ -2539,10 +3510,13 @@
 
       initCarousel();
       loadCart_(); // restore cart + applied coupon so refresh never empties it
+      autoTelegramLogin_(); // Telegram WebApp -> silent profile login
+      updateHeaderAuth(); // header shows Login or the customer's first name
       render();
       prefillOrderForm();
       renderProfile();
       updateCartBadge();
+      renderScanHistory();
       // Fetch + render live inventory (localStorage webhook or DEFAULT_SHEET_WEBHOOK).
       syncFromGoogleSheet();
       // Admin-set offer banners are shared: Sheet first (ALL customers see the
@@ -2555,6 +3529,19 @@
       syncAddressesFromSheet();
       setInterval(function () { syncOrdersFromSheet(); }, 60000);
       setInterval(function () { syncAddressesFromSheet(); }, 300000);
+
+      // Manifest shortcuts: /?screen=orders|cart|address|profile
+      try {
+        var scr = new URLSearchParams(window.location.search).get('screen');
+        if (scr && ['orders', 'cart', 'address', 'profile'].indexOf(scr) >= 0) showScreen(scr);
+      } catch (e) {}
+
+      // PWA: register the service worker (offline shell — see sw.js).
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('sw.js').catch(function () {});
+        });
+      }
     });
   </script>
 </body>
